@@ -1,6 +1,11 @@
 package index
 
-import "sync"
+import (
+	"sync"
+	"time"
+
+	log "github.com/sirupsen/logrus"
+)
 
 type File struct {
 	FileName string
@@ -9,44 +14,47 @@ type File struct {
 
 type FileIndex struct {
 	mu    sync.RWMutex
-	dir   string
-	index map[string]File
+	Dir   string
+	index map[string]*File
 }
 
 var I *FileIndex
 
 func init() {
 	I = &FileIndex{
-		dir:   "",
-		index: map[string]File{},
+		Dir:   "",
+		index: map[string]*File{},
 	}
 }
 
-func (i FileIndex) Lookup(key string) (File, bool) {
+func (i *FileIndex) Lookup(key string) (*File, bool) {
 	i.mu.RLock()
-	defer i.mu.Unlock()
+	defer i.mu.RUnlock()
 
 	if file, ok := i.index[key]; ok {
 		return file, true
 	}
 
-	return File{}, false
+	return &File{}, false
 }
 
-func (i FileIndex) Regenerate(dir string) {
+func (i *FileIndex) Regenerate(dir string) {
+	start := time.Now()
+	log.Infof("building index for directory %s...", dir)
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	i.dir = dir
+	i.Dir = dir
 	i.index = i.buildIndexMap()
+	log.Infof("built index in %d ms", time.Since(start).Milliseconds())
 }
 
-func (i FileIndex) buildIndexMap() map[string]File {
-	newIndexMap := make(map[string]File)
+func (i *FileIndex) buildIndexMap() map[string]*File {
+	newIndexMap := make(map[string]*File)
 
-	files := crawlDirectory(i.dir)
+	files := crawlDirectory(i.Dir)
 	for _, f := range files {
-		newIndexMap[f] = File{FileName: f}
+		newIndexMap[f] = &File{FileName: f}
 	}
 
 	return newIndexMap

@@ -1,7 +1,14 @@
 package main
 
-import "github.com/themillenniumfalcon/smolDB/index"
+import (
+	log "github.com/sirupsen/logrus"
+	"github.com/themillenniumfalcon/smolDB/api"
+	"github.com/themillenniumfalcon/smolDB/index"
+)
 
 func main() {
-	index.I.Regenerate("")
+	log.Infof("initializing smolDB")
+	index.I.Regenerate("db")
+
+	api.Serve()
 }
