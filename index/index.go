@@ -74,7 +74,9 @@ func (i *FileIndex) Delete(file *File) error {
 	defer i.mu.Unlock()
 
 	err := file.Delete()
-	delete(i.index, file.FileName)
+	if err == nil {
+		delete(i.index, file.FileName)
+	}
 
 	return err
 }

@@ -57,6 +57,7 @@ func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	field := ps.ByName("field")
 
 	log.Info("get field '%s' in key '%s'", field, key)
+
 	file, ok := index.I.Lookup(key)
 	if ok {
 		bytes, _ := file.GetByteArray()
@@ -121,9 +122,11 @@ func DeleteKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if ok {
 		err := index.I.Delete(file)
 		if err != nil {
-			log.Warn("err unable to delete key '%s': '%s'", key, err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			log.WWarn(w, "err unable to delete key '%s': '%s'", key, err.Error())
+			return
 		}
-		log.WInfo(w, "key '%s' deleted successfully", key)
+		log.WInfo(w, "delete '%s' successful", key)
 		return
 	}
 
