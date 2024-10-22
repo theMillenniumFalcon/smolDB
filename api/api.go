@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ func NotFound(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "404 page not found", http.StatusNotFound)
 }
 
-func main() {
+func init() {
 	router := httprouter.New()
 	router.GET("/", GetIndex)
 	router.GET("/:key", GetKey)
