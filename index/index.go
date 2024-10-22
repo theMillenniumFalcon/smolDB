@@ -1,6 +1,7 @@
 package index
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -58,4 +59,16 @@ func (i *FileIndex) buildIndexMap() map[string]*File {
 	}
 
 	return newIndexMap
+}
+
+func (i *FileIndex) ListKeys() string {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+
+	var res []string
+	for k := range i.index {
+		res = append(res, k)
+	}
+
+	return strings.Join(res, ", ")
 }

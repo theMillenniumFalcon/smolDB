@@ -11,7 +11,8 @@ import (
 )
 
 func GetIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	fmt.Fprint(w, "Welcome!\n")
+	files := index.I.ListKeys()
+	fmt.Fprintf(w, "%+v", files)
 }
 
 func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
