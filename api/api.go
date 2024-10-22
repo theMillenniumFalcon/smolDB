@@ -13,7 +13,7 @@ import (
 )
 
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	log.WInfo(w, "smolDB is ok")
+	log.WInfo(w, "smolDB is working fine!")
 }
 
 func RegenerateIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -58,12 +58,12 @@ func UpdateKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Warn("err reading body when key %s: %s", key, err.Error())
+		log.Warn("err reading body when key '%s': '%s'", key, err.Error())
 	}
 
 	err = index.I.Put(file, bodyBytes)
 	if err != nil {
-		log.Warn("err updating key %s: %s", key, err.Error())
+		log.Warn("err updating key '%s': '%s'", key, err.Error())
 	}
 
 	if ok {
@@ -71,6 +71,23 @@ func UpdateKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 	log.WInfo(w, "create '%s' successful", key)
+}
+
+func DeleteKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	key := ps.ByName("key")
+	log.Info("delete key '%s'", key)
+
+	file, ok := index.I.Lookup(key)
+	if ok {
+		err := index.I.Delete(file)
+		if err != nil {
+			log.Warn("unable to delete key '%s': '%s'", key, err.Error())
+		}
+		log.WInfo(w, "key '%s' deleted successfully", key)
+		return
+	}
+
+	log.WInfo(w, "key '%s' does not exist", key)
 }
 
 func NotFound(w http.ResponseWriter, r *http.Request) {
@@ -85,6 +102,7 @@ func Serve() {
 	router.GET("/getKeys", GetKeys)
 	router.GET("/get/:key", GetKey)
 	router.PUT("/put/:key", UpdateKey)
+	router.DELETE("/delete/:key", DeleteKey)
 
 	router.NotFound = http.HandlerFunc(NotFound)
 

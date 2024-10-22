@@ -31,7 +31,6 @@ func (f *File) replaceContent(str string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	// create blank file
 	_, err := os.Create(f.ResolvePath())
 	if err != nil {
 		return err
@@ -46,6 +45,18 @@ func (f *File) replaceContent(str string) error {
 
 	_, e := file.WriteString(str)
 	if e != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (f *File) Delete() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	err := os.Remove(f.ResolvePath())
+	if err != nil {
 		return err
 	}
 
