@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -15,8 +16,17 @@ func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 }
 
 func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	w.Header().Set("Content-Type", "application/json")
 	files := index.I.ListKeys()
-	fmt.Fprintf(w, "%+v", files)
+
+	data := struct {
+		Files []string `json:"files"`
+	}{
+		Files: files,
+	}
+
+	jsonData, _ := json.Marshal(data)
+	fmt.Fprintf(w, "%+v", string(jsonData))
 }
 
 func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
