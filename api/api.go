@@ -10,7 +10,11 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-func GetIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	fmt.Fprint(w, "smolDB is ok")
+}
+
+func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	files := index.I.ListKeys()
 	fmt.Fprintf(w, "%+v", files)
 }
@@ -35,7 +39,8 @@ func NotFound(w http.ResponseWriter, r *http.Request) {
 func Serve() {
 	router := httprouter.New()
 
-	router.GET("/", GetIndex)
+	router.GET("/", Health)
+	router.GET("/getKeys", GetKeys)
 	router.GET("/get/:key", GetKey)
 	router.POST("/regenerate", RegenerateIndex)
 

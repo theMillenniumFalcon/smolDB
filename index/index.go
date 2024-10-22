@@ -40,10 +40,11 @@ func (i *FileIndex) Lookup(key string) (*File, bool) {
 }
 
 func (i *FileIndex) Regenerate(dir string) {
-	start := time.Now()
-	log.Infof("building index for directory %s...", dir)
 	i.mu.Lock()
 	defer i.mu.Unlock()
+
+	start := time.Now()
+	log.Infof("building index for directory %s...", dir)
 
 	i.Dir = dir
 	i.index = i.buildIndexMap()
