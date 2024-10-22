@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/themillenniumfalcon/smolDB/log"
 )
 
 func crawlDirectory(directory string) []string {
@@ -25,4 +25,29 @@ func crawlDirectory(directory string) []string {
 	}
 
 	return res
+}
+
+func (f *File) replaceContent(str string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	// create blank file
+	_, err := os.Create(f.ResolvePath())
+	if err != nil {
+		return err
+	}
+
+	file, err := os.OpenFile(f.ResolvePath(), os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		return err
+	}
+
+	defer file.Close()
+
+	_, e := file.WriteString(str)
+	if e != nil {
+		return err
+	}
+
+	return nil
 }

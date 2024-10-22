@@ -2,11 +2,10 @@ package index
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/themillenniumfalcon/smolDB/log"
 )
 
 type File struct {
@@ -40,16 +39,23 @@ func (i *FileIndex) Lookup(key string) (*File, bool) {
 	return &File{FileName: key}, false
 }
 
+func (i *FileIndex) Put(file *File, bytes []byte) error {
+	i.mu.Lock()
+	i.index[file.FileName] = file
+	i.mu.Unlock()
+	return file.replaceContent(string(bytes))
+}
+
 func (i *FileIndex) Regenerate(dir string) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
 	start := time.Now()
-	log.Infof("building index for directory %s...", dir)
+	log.Info("building index for directory %s...", dir)
 
 	i.Dir = dir
 	i.index = i.buildIndexMap()
-	log.Infof("built index in %d ms", time.Since(start).Milliseconds())
+	log.Info("built index of %d files in %d ms", len(i.index), time.Since(start).Milliseconds())
 }
 
 func (i *FileIndex) buildIndexMap() map[string]*File {
@@ -76,21 +82,4 @@ func (i *FileIndex) ListKeys() (res []string) {
 
 func (f *File) ResolvePath() string {
 	return fmt.Sprintf("%s/%s.json", I.Dir, f.FileName)
-}
-
-func (f *File) ReplaceContent(str string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	os.Create(f.ResolvePath())
-	file, err := os.OpenFile(f.ResolvePath(), os.O_WRONLY, os.ModeAppend)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-
-	_, e := file.WriteString(str)
-	if e != nil {
-		log.Fatal(err)
-	}
 }

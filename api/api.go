@@ -6,23 +6,24 @@ import (
 	"io"
 	"net/http"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/themillenniumfalcon/smolDB/index"
+	"github.com/themillenniumfalcon/smolDB/log"
 
 	"github.com/julienschmidt/httprouter"
 )
 
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	fmt.Fprint(w, "smolDB is ok")
+	log.WInfo(w, "smolDB is ok")
 }
 
 func RegenerateIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	fmt.Fprintf(w, "hit regenerate index")
 	index.I.Regenerate(index.I.Dir)
+	log.WInfo(w, "regenerated index")
 }
 
 func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Header().Set("Content-Type", "application/json")
+	log.Info("retrieving index")
 	files := index.I.ListKeys()
 
 	data := struct {
@@ -37,7 +38,7 @@ func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("key")
-	log.Infof("get key '%s'", key)
+	log.Info("get key '%s'", key)
 
 	file, ok := index.I.Lookup(key)
 	if ok {
@@ -46,26 +47,30 @@ func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	write404(w, key)
+	w.WriteHeader(http.StatusNotFound)
+	log.WWarn(w, "key '%s' not found", key)
 }
 
 func UpdateKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("key")
-	file, _ := index.I.Lookup(key)
+	log.Info("put key '%s'", key)
+	file, ok := index.I.Lookup(key)
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Fatal(err)
+		log.Warn("err reading body when key %s: %s", key, err.Error())
 	}
 
-	file.ReplaceContent(string(bodyBytes))
-	fmt.Fprintf(w, "update '%s' successful", key)
-}
+	err = index.I.Put(file, bodyBytes)
+	if err != nil {
+		log.Warn("err updating key %s: %s", key, err.Error())
+	}
 
-func write404(w http.ResponseWriter, key string) {
-	w.WriteHeader(http.StatusNotFound)
-	fmt.Fprintf(w, "key '%s' not found", key)
-	log.Warnf("key '%s' not found", key)
+	if ok {
+		log.WInfo(w, "update '%s' successful", key)
+		return
+	}
+	log.WInfo(w, "create '%s' successful", key)
 }
 
 func NotFound(w http.ResponseWriter, r *http.Request) {
