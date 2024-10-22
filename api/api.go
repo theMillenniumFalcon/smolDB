@@ -21,10 +21,19 @@ func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("key")
-	log.Infof("attempt to get key %s", key)
+	log.Infof("get key '%s'", key)
 
 	file, ok := index.I.Lookup(key)
-	fmt.Fprintf(w, "%+v, %t", file.FileName, ok)
+	if ok {
+		w.Header().Set("Content-Type", "application/json")
+		http.ServeFile(w, r, file.ResolvePath())
+		return
+	}
+
+	w.WriteHeader(http.StatusNotFound)
+
+	fmt.Fprintf(w, "key '%s' not found", key)
+	log.Warnf("key '%s' not found", key)
 }
 
 func RegenerateIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {

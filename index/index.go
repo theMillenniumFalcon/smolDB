@@ -1,6 +1,7 @@
 package index
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -72,4 +73,8 @@ func (i *FileIndex) ListKeys() string {
 	}
 
 	return strings.Join(res, ", ")
+}
+
+func (f *File) ResolvePath() string {
+	return fmt.Sprintf("%s/%s.json", I.Dir, f.FileName)
 }
