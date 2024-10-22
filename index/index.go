@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -36,7 +37,7 @@ func (i *FileIndex) Lookup(key string) (*File, bool) {
 		return file, true
 	}
 
-	return &File{}, false
+	return &File{FileName: key}, false
 }
 
 func (i *FileIndex) Regenerate(dir string) {
@@ -75,4 +76,21 @@ func (i *FileIndex) ListKeys() (res []string) {
 
 func (f *File) ResolvePath() string {
 	return fmt.Sprintf("%s/%s.json", I.Dir, f.FileName)
+}
+
+func (f *File) ReplaceContent(str string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	os.Create(f.ResolvePath())
+	file, err := os.OpenFile(f.ResolvePath(), os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer file.Close()
+
+	_, e := file.WriteString(str)
+	if e != nil {
+		log.Fatal(err)
+	}
 }
