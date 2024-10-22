@@ -71,10 +71,12 @@ func (i *FileIndex) buildIndexMap() map[string]*File {
 
 func (i *FileIndex) Delete(file *File) error {
 	i.mu.Lock()
-	delete(i.index, file.FileName)
-	i.mu.Unlock()
+	defer i.mu.Unlock()
 
-	return file.Delete()
+	err := file.Delete()
+	delete(i.index, file.FileName)
+
+	return err
 }
 
 func (i *FileIndex) ListKeys() (res []string) {

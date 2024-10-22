@@ -62,3 +62,7 @@ func (f *File) Delete() error {
 
 	return nil
 }
+
+func (f *File) GetByteArray() ([]byte, error) {
+	return os.ReadFile(f.ResolvePath())
+}

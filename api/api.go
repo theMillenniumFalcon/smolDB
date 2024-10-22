@@ -22,7 +22,6 @@ func RegenerateIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 }
 
 func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	w.Header().Set("Content-Type", "application/json")
 	log.Info("retrieving index")
 	files := index.I.ListKeys()
 
@@ -31,6 +30,8 @@ func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}{
 		Files: files,
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 
 	jsonData, _ := json.Marshal(data)
 	fmt.Fprintf(w, "%+v", string(jsonData))
@@ -51,6 +52,41 @@ func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.WWarn(w, "key '%s' not found", key)
 }
 
+func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	key := ps.ByName("key")
+	field := ps.ByName("field")
+
+	log.Info("get field '%s' in key '%s'", field, key)
+	file, ok := index.I.Lookup(key)
+	if ok {
+		bytes, _ := file.GetByteArray()
+		var jsonMap map[string]interface{}
+
+		err := json.Unmarshal(bytes, &jsonMap)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
+			return
+		}
+
+		val, ok := jsonMap[field]
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			log.WWarn(w, "err key '%s' does not have field '%s'", key, field)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+
+		jsonData, _ := json.Marshal(val)
+		fmt.Fprintf(w, "%+v", string(jsonData))
+		return
+	}
+
+	w.WriteHeader(http.StatusNotFound)
+	log.WWarn(w, "key '%s' not found", key)
+}
+
 func UpdateKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("key")
 	log.Info("put key '%s'", key)
@@ -58,12 +94,16 @@ func UpdateKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Warn("err reading body when key '%s': '%s'", key, err.Error())
+		w.WriteHeader(http.StatusBadRequest)
+		log.WWarn(w, "err reading body when key '%s': %s", key, err.Error())
+		return
 	}
 
 	err = index.I.Put(file, bodyBytes)
 	if err != nil {
-		log.Warn("err updating key '%s': '%s'", key, err.Error())
+		w.WriteHeader(http.StatusInternalServerError)
+		log.WWarn(w, "err updating key '%s': %s", key, err.Error())
+		return
 	}
 
 	if ok {
@@ -81,13 +121,14 @@ func DeleteKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if ok {
 		err := index.I.Delete(file)
 		if err != nil {
-			log.Warn("unable to delete key '%s': '%s'", key, err.Error())
+			log.Warn("err unable to delete key '%s': '%s'", key, err.Error())
 		}
 		log.WInfo(w, "key '%s' deleted successfully", key)
 		return
 	}
 
-	log.WInfo(w, "key '%s' does not exist", key)
+	w.WriteHeader(http.StatusNotFound)
+	log.WWarn(w, "key '%s' does not exist", key)
 }
 
 func NotFound(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +142,7 @@ func Serve() {
 	router.POST("/regenerate", RegenerateIndex)
 	router.GET("/getKeys", GetKeys)
 	router.GET("/get/:key", GetKey)
+	router.GET("/get/:key/:field", GetKeyField)
 	router.PUT("/put/:key", UpdateKey)
 	router.DELETE("/delete/:key", DeleteKey)
 
