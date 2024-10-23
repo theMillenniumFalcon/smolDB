@@ -6,11 +6,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	af "github.com/spf13/afero"
 	"github.com/themillenniumfalcon/smolDB/log"
 )
 
+var fs = af.NewOsFs()
+
 func crawlDirectory(directory string) []string {
-	files, err := os.ReadDir(directory)
+	files, err := af.ReadDir(fs, directory)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -32,12 +35,12 @@ func (f *File) ReplaceContent(str string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	_, err := os.Create(f.ResolvePath())
+	_, err := fs.Create(f.ResolvePath())
 	if err != nil {
 		return err
 	}
 
-	file, err := os.OpenFile(f.ResolvePath(), os.O_WRONLY, os.ModeAppend)
+	file, err := fs.OpenFile(f.ResolvePath(), os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		return err
 	}
@@ -56,7 +59,7 @@ func (f *File) Delete() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	err := os.Remove(f.ResolvePath())
+	err := fs.Remove(f.ResolvePath())
 	if err != nil {
 		return err
 	}
@@ -68,7 +71,7 @@ func (f *File) getByteArray() ([]byte, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
-	return os.ReadFile(f.ResolvePath())
+	return af.ReadFile(fs, f.ResolvePath())
 }
 
 func (f *File) ToMap() (res map[string]interface{}, err error) {
