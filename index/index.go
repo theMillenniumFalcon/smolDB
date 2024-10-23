@@ -95,5 +95,9 @@ func (i *FileIndex) ListKeys() (res []string) {
 }
 
 func (f *File) ResolvePath() string {
+	if I.Dir == "" {
+		return fmt.Sprintf("%s.json", f.FileName)
+	}
+
 	return fmt.Sprintf("%s/%s.json", I.Dir, f.FileName)
 }
