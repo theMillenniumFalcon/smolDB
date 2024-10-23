@@ -4,11 +4,12 @@ import React from "react";
 
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/seperator"
+import { Docker } from "@/components/docker";
 
 export default function Home() {
   return (
     <div className="w-full mt-8">
-      <h1 className="md:text-4xl sm:text-3xl text-2xl mb-4 font-semibold">
+      <h1 className="md:text-3xl sm:text-2xl text-xl mb-4 font-semibold">
         smolDB
       </h1>
       <div className="text-muted-foreground">
@@ -24,6 +25,21 @@ export default function Home() {
         .
       </div>
       <Separator className="my-8" />
+      <p className="text-muted-foreground">Get started quickly with Docker:</p>
+      <Docker />
+      <Separator className="my-8" />
+      <div className="text-muted-foreground">
+        Built by{" "}
+        <a
+          href="https://nishank.vercel.app"
+          target="_blank"
+        >
+          <Button className=" p-0 h-auto text-base" variant="link">
+            Nishank
+          </Button>
+        </a>
+        .
+      </div>
     </div>
   );
 }
