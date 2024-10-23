@@ -41,9 +41,11 @@ func (i *FileIndex) Lookup(key string) (*File, bool) {
 
 func (i *FileIndex) Put(file *File, bytes []byte) error {
 	i.mu.Lock()
+	defer i.mu.Unlock()
+
 	i.index[file.FileName] = file
-	i.mu.Unlock()
-	return file.replaceContent(string(bytes))
+	err := file.ReplaceContent(string(bytes))
+	return err
 }
 
 func (i *FileIndex) Regenerate(dir string) {

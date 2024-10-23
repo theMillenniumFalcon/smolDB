@@ -60,10 +60,7 @@ func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	file, ok := index.I.Lookup(key)
 	if ok {
-		bytes, _ := file.GetByteArray()
-		var jsonMap map[string]interface{}
-
-		err := json.Unmarshal(bytes, &jsonMap)
+		jsonMap, err := file.ToMap()
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
@@ -78,7 +75,6 @@ func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-
 		jsonData, _ := json.Marshal(val)
 		fmt.Fprintf(w, "%+v", string(jsonData))
 		return
@@ -134,6 +130,53 @@ func DeleteKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.WWarn(w, "key '%s' does not exist", key)
 }
 
+func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	key := ps.ByName("key")
+	field := ps.ByName("field")
+	log.Info("patch field '%s' in key '%s'", field, key)
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		log.WWarn(w, "err reading body with key '%s': %s", key, err.Error())
+		return
+	}
+
+	file, ok := index.I.Lookup(key)
+	if ok {
+		jsonMap, err := file.ToMap()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
+			return
+		}
+
+		var parsedJSON map[string]interface{}
+
+		err = json.Unmarshal(bodyBytes, &parsedJSON)
+		if err != nil {
+			jsonMap[field] = string(bodyBytes)
+		} else {
+			jsonMap[field] = parsedJSON
+		}
+		jsonData, _ := json.Marshal(jsonMap)
+
+		err = file.ReplaceContent(string(jsonData))
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			log.WWarn(w, "err setting content of key '%s': %s", key, err.Error())
+			return
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
+		log.WInfo(w, "patch field '%s' of key '%s' successful", field, key)
+		return
+	}
+
+	w.WriteHeader(http.StatusNotFound)
+	log.WWarn(w, "key '%s' not found", key)
+}
+
 func NotFound(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "404 page not found", http.StatusNotFound)
 }
@@ -148,6 +191,7 @@ func Serve() {
 	router.GET("/get/:key/:field", GetKeyField)
 	router.PUT("/put/:key", UpdateKey)
 	router.DELETE("/delete/:key", DeleteKey)
+	router.PATCH("/:key/:field", PatchKeyField)
 
 	router.NotFound = http.HandlerFunc(NotFound)
 
