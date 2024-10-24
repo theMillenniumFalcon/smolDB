@@ -13,7 +13,8 @@ export default function Home() {
         smolDB
       </h1>
       <div className="text-muted-foreground">
-        Check the repository out on{" "}
+        A JSON document-based database that relies on key based access to achieve
+        O(1) access time. Check the repository out on{" "}
         <a
           href="https://github.com/themillenniumfalcon/smolDB"
           target="_blank"
