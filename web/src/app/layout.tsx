@@ -7,6 +7,7 @@ import { Toaster } from "sonner"
 
 import { ThemeProvider } from "@/lib/theme/themeProvider"
 import { ModeToggle } from "@/components/theme/toggle"
+import { SuccessIcon } from "@/components/icons/successIcon"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -40,11 +41,13 @@ export default function RootLayout({
               {children}
               <Toaster
                 toastOptions={{
-                  style: {
-                    background: '#232323',
-                    color: 'white',
-                    border: '#232323'
+                  classNames: {
+                    toast: 'bg-border',
+                    title: 'text-secondary-foreground',
                   },
+                }}
+                icons={{
+                  success: <SuccessIcon />,
                 }}
               />
             </div>

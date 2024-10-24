@@ -24,7 +24,7 @@ export function Docker() {
 
   return (
     <div className="border border-border px-1 rounded mt-1 cursor-copy" onClick={onCopy}>
-        <code className="block whitespace-pre-wrap break-all px-3 pr-[62px] rounded text-sm md:text-base relative h-auto items-center text-white">
+        <code className="block whitespace-pre-wrap break-all px-3 pr-[62px] rounded text-sm md:text-base relative h-auto items-center">
                 <div className="my-4 text-secondary-foreground">
                     {`docker run -p 8080:8080 nishank02/smoldb:latest`}
                 </div>
