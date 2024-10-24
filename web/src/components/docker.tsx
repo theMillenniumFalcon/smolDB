@@ -23,12 +23,12 @@ export function Docker() {
   }, [])
 
   return (
-    <div className="border border-white/[.1] px-1 rounded mt-1 cursor-copy" onClick={onCopy}>
+    <div className="border border-border px-1 rounded mt-1 cursor-copy" onClick={onCopy}>
         <code className="block whitespace-pre-wrap break-all px-3 pr-[62px] rounded text-sm md:text-base relative h-auto items-center text-white">
-                <div className="my-4">
+                <div className="my-4 text-secondary-foreground">
                     {`docker run -p 8080:8080 nishank02/smoldb:latest`}
                 </div>
-            <button aria-label="Copy code" className="absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-md bg-white/[.1] text-white w-[26px] h-[26px] flex justify-center items-center">
+            <button aria-label="Copy code" className="absolute right-1.5 top-1/2 -translate-y-1/2 cursor-pointer rounded-md bg-border text-white w-[26px] h-[26px] flex justify-center items-center">
                 <MotionConfig transition={{ duration: 0.15 }}>
                     <AnimatePresence initial={false} mode="wait">
                         {copying ? (
