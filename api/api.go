@@ -17,7 +17,7 @@ func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 }
 
 func RegenerateIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	index.I.Regenerate(index.I.Dir)
+	index.I.Regenerate()
 	log.WInfo(w, "regenerated index")
 }
 

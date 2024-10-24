@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/themillenniumfalcon/smolDB/log"
+
+	af "github.com/spf13/afero"
 )
 
 type File struct {
@@ -14,18 +16,24 @@ type File struct {
 }
 
 type FileIndex struct {
-	mu    sync.RWMutex
-	Dir   string
-	index map[string]*File
+	mu         sync.RWMutex
+	Dir        string
+	index      map[string]*File
+	FileSystem af.Fs
 }
 
 var I *FileIndex
 
-func init() {
-	I = &FileIndex{
-		Dir:   "",
-		index: map[string]*File{},
+func NewFileIndex(dir string) *FileIndex {
+	return &FileIndex{
+		Dir:        dir,
+		index:      map[string]*File{},
+		FileSystem: af.NewOsFs(),
 	}
+}
+
+func (i *FileIndex) SetFileSystem(fs af.Fs) {
+	i.FileSystem = fs
 }
 
 func (i *FileIndex) Lookup(key string) (*File, bool) {
@@ -48,14 +56,13 @@ func (i *FileIndex) Put(file *File, bytes []byte) error {
 	return err
 }
 
-func (i *FileIndex) Regenerate(dir string) {
+func (i *FileIndex) Regenerate() {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
 	start := time.Now()
-	log.Info("building index for directory %s...", dir)
+	log.Info("building index for directory %s...", I.Dir)
 
-	i.Dir = dir
 	i.index = i.buildIndexMap()
 	log.Info("built index of %d files in %d ms", len(i.index), time.Since(start).Milliseconds())
 }
