@@ -13,7 +13,9 @@ import (
 )
 
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	log.WInfo(w, "smolDB is working fine!")
+	response := map[string]string{"message": "smolDB is working fine!"}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func RegenerateIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
