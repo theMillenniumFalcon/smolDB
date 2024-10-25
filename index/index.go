@@ -17,7 +17,7 @@ type File struct {
 
 type FileIndex struct {
 	mu         sync.RWMutex
-	Dir        string
+	dir        string
 	index      map[string]*File
 	FileSystem af.Fs
 }
@@ -26,7 +26,7 @@ var I *FileIndex
 
 func NewFileIndex(dir string) *FileIndex {
 	return &FileIndex{
-		Dir:        dir,
+		dir:        dir,
 		index:      map[string]*File{},
 		FileSystem: af.NewOsFs(),
 	}
@@ -61,16 +61,21 @@ func (i *FileIndex) Regenerate() {
 	defer i.mu.Unlock()
 
 	start := time.Now()
-	log.Info("building index for directory %s...", I.Dir)
+	log.Info("building index for directory %s...", I.dir)
 
 	i.index = i.buildIndexMap()
 	log.Info("built index of %d files in %d ms", len(i.index), time.Since(start).Milliseconds())
 }
 
+func (i *FileIndex) RegenerateNew(dir string) {
+	i.dir = dir
+	i.Regenerate()
+}
+
 func (i *FileIndex) buildIndexMap() map[string]*File {
 	newIndexMap := make(map[string]*File)
 
-	files := crawlDirectory(i.Dir)
+	files := crawlDirectory(i.dir)
 	for _, f := range files {
 		newIndexMap[f] = &File{FileName: f}
 	}
@@ -102,9 +107,9 @@ func (i *FileIndex) ListKeys() (res []string) {
 }
 
 func (f *File) ResolvePath() string {
-	if I.Dir == "" {
+	if I.dir == "" {
 		return fmt.Sprintf("%s.json", f.FileName)
 	}
 
-	return fmt.Sprintf("%s/%s.json", I.Dir, f.FileName)
+	return fmt.Sprintf("%s/%s.json", I.dir, f.FileName)
 }
