@@ -143,3 +143,127 @@ func TestGetKey(t *testing.T) {
 		})
 	})
 }
+
+func TestRegenerateIndex(t *testing.T) {
+
+	t.Run("test regenerate modifies index", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		index.I.Regenerate()
+
+		expected := map[string]interface{}{
+			"field": "value",
+		}
+		_ = makeNewJSON("test", expected)
+		router := httprouter.New()
+		router.GET("/getKeys", GetKeys)
+		router.POST("/regenerate", RegenerateIndex)
+
+		req, _ := http.NewRequest("GET", "/getKeys", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertHTTPBody(t, rr, map[string]interface{}{
+			"files": nil,
+		})
+
+		req, _ = http.NewRequest("POST", "/regenerate", nil)
+		rr = httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+
+		req, _ = http.NewRequest("GET", "/getKeys", nil)
+		rr = httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertHTTPContains(t, rr, []string{"test"})
+	})
+}
+
+func TestGetKeyField(t *testing.T) {
+
+	t.Run("get field of non-existent key", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		router := httprouter.New()
+		router.GET("/get/:key/:field", GetKeyField)
+
+		req, _ := http.NewRequest("GET", "/nothinghere", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusNotFound)
+	})
+
+	t.Run("get non-existent field of key", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		expected := map[string]interface{}{
+			"field": "value",
+		}
+
+		_ = makeNewJSON("test", expected)
+
+		index.I.Regenerate()
+		router := httprouter.New()
+
+		router.GET("/:key/:field", GetKeyField)
+
+		req, _ := http.NewRequest("GET", "/test/no-field", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusBadRequest)
+
+	})
+
+	t.Run("get field of key simple value", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		expected := map[string]interface{}{
+			"field": "value",
+		}
+		_ = makeNewJSON("test", expected)
+
+		index.I.Regenerate()
+
+		router := httprouter.New()
+		router.GET("/:key/:field", GetKeyField)
+
+		req, _ := http.NewRequest("GET", "/test/field", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertHTTPContains(t, rr, []string{"value"})
+	})
+
+	t.Run("get field of key", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		nested := map[string]interface{}{
+			"more_fields": "yay",
+			"nested_thing": map[string]interface{}{
+				"f": "asdf",
+			},
+		}
+
+		expected := map[string]interface{}{
+			"field":       nested,
+			"other_field": "yeet",
+		}
+		_ = makeNewJSON("test", expected)
+
+		router := httprouter.New()
+		router.GET("/:key/:field", GetKeyField)
+
+		req, _ := http.NewRequest("GET", "/test/field", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertHTTPBody(t, rr, nested)
+	})
+}
