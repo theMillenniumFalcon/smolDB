@@ -44,7 +44,17 @@ func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	file, ok := index.I.Lookup(key)
 	if ok {
 		w.Header().Set("Content-Type", "application/json")
-		http.ServeFile(w, r, file.ResolvePath())
+
+		jsonMap, err := file.ToMap()
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		jsonData, _ := json.Marshal(jsonMap)
+		fmt.Fprintf(w, "%+v", string(jsonData))
 		return
 	}
 
