@@ -12,21 +12,21 @@ export default function Home() {
       <h1 className="md:text-3xl sm:text-2xl text-xl mb-4 font-semibold">
         smolDB
       </h1>
-      <div className="text-muted-foreground">
+      <div className="text-muted-foreground text-sm md:text-base">
         A JSON document-based database that relies on key based access to achieve
         O(1) access time. Check the repository out on{" "}
         <a
           href="https://github.com/themillenniumfalcon/smolDB"
           target="_blank"
         >
-          <Button className=" p-0 h-auto text-base" variant="link">
+          <Button className=" p-0 h-auto text-sm md:text-base" variant="link">
             GitHub
           </Button>
         </a>
         .
       </div>
       <Separator className="my-8" />
-      <p className="text-muted-foreground">Get started quickly with Docker:</p>
+      <p className="text-muted-foreground text-sm md:text-base">Get started quickly with Docker:</p>
       <Docker />
       <Separator className="my-8" />
       <div className="text-muted-foreground">
