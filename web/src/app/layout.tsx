@@ -13,6 +13,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "smolDB",
+  description: "A JSON document-based database that relies on key based access to achieve O(1) access time."
 }
 
 export default function RootLayout({
@@ -44,6 +45,9 @@ export default function RootLayout({
                   classNames: {
                     toast: 'bg-border',
                     title: 'text-secondary-foreground',
+                  },
+                  style: {
+                    border: 'none',
                   },
                 }}
                 icons={{
