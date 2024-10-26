@@ -1,1 +1,1 @@
-# ![alt text](./asssets/logo.svg) smolDB
+## ![alt text](./asssets/logo.svg) smolDB
