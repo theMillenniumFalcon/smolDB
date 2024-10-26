@@ -5,12 +5,64 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
+	"strings"
 
 	"github.com/themillenniumfalcon/smolDB/index"
 	"github.com/themillenniumfalcon/smolDB/log"
 
 	"github.com/julienschmidt/httprouter"
 )
+
+func resolveReferences(w http.ResponseWriter, jsonVal interface{}) interface{} {
+	val := reflect.ValueOf(jsonVal)
+
+	switch val.Kind() {
+	case reflect.String:
+		valString := val.String()
+
+		if strings.Contains(valString, "REF::") {
+			key := strings.Replace(valString, "REF::", "", 1)
+			file, ok := index.I.Lookup(key)
+
+			if ok {
+				jsonMap, err := file.ToMap()
+				if err != nil {
+					w.WriteHeader(http.StatusBadRequest)
+					log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
+				}
+
+				return resolveReferences(w, jsonMap)
+			}
+
+			w.WriteHeader(http.StatusNotFound)
+			log.WWarn(w, "key '%s' not found", key)
+		}
+
+		return valString
+	case reflect.Slice:
+		numberOfValues := val.Len()
+		newSlice := make([]interface{}, numberOfValues)
+
+		for i := 0; i < numberOfValues; i++ {
+			pointer := val.Index(i)
+			newSlice[i] = resolveReferences(w, pointer.Interface())
+		}
+
+		return newSlice
+	case reflect.Map:
+		newMap := make(map[string]interface{})
+
+		for _, key := range val.MapKeys() {
+			nestedVal := val.MapIndex(key).Interface()
+			newMap[key.String()] = resolveReferences(w, nestedVal)
+		}
+
+		return newMap
+	default:
+		return val
+	}
+}
 
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	response := map[string]string{"message": "smolDB is working fine!"}
@@ -55,7 +107,8 @@ func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ := json.Marshal(jsonMap)
+		resolvedJsonMap := resolveReferences(w, jsonMap)
+		jsonData, _ := json.Marshal(resolvedJsonMap)
 		fmt.Fprintf(w, "%+v", string(jsonData))
 		return
 	}
@@ -87,7 +140,8 @@ func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		jsonData, _ := json.Marshal(val)
+		resolvedValue := resolveReferences(w, val)
+		jsonData, _ := json.Marshal(resolvedValue)
 		fmt.Fprintf(w, "%+v", string(jsonData))
 		return
 	}
