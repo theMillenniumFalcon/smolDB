@@ -43,7 +43,7 @@ func TestFileIndex_Lookup(t *testing.T) {
 			t.Errorf("should have found file: '%s'", file.FileName)
 		}
 
-		bytes, _ := file.getByteArray()
+		bytes, _ := file.GetByteArray()
 		checkDeepEquals(t, string(bytes), "test")
 	})
 

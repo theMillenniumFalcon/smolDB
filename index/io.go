@@ -65,7 +65,7 @@ func (f *File) Delete() error {
 	return nil
 }
 
-func (f *File) getByteArray() ([]byte, error) {
+func (f *File) GetByteArray() ([]byte, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
 
@@ -73,7 +73,7 @@ func (f *File) getByteArray() ([]byte, error) {
 }
 
 func (f *File) ToMap() (res map[string]interface{}, err error) {
-	bytes, err := f.getByteArray()
+	bytes, err := f.GetByteArray()
 	if err != nil {
 		return res, err
 	}

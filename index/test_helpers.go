@@ -106,7 +106,7 @@ func checkContentEqual(t *testing.T, key string, newContent map[string]interface
 	got, ok := I.Lookup(key)
 	assert.True(t, ok)
 
-	gotBytes, err := got.getByteArray()
+	gotBytes, err := got.GetByteArray()
 	assertNilErr(t, err)
 	checkJSONEquals(t, string(gotBytes), mapToString(newContent))
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -31,6 +32,27 @@ func TestHealth(t *testing.T) {
 		assertHTTPBody(t, rr, map[string]interface{}{
 			"message": "smolDB is working fine!",
 		})
+	})
+}
+func TestRegenerateIndex(t *testing.T) {
+	router := httprouter.New()
+	router.POST("/regenerate", RegenerateIndex)
+
+	t.Run("test regenerate modifies index", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		index.I.Regenerate()
+
+		makeNewJSON("test", exampleJSON)
+		assertEmptySlice(t, index.I.ListKeys())
+
+		req, _ := http.NewRequest("POST", "/regenerate", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+
+		assertSliceContains(t, index.I.ListKeys(), "test")
 	})
 }
 
@@ -70,12 +92,12 @@ func TestGetKeys(t *testing.T) {
 
 func TestGetKey(t *testing.T) {
 	router := httprouter.New()
-	router.GET("/get/:key", GetKey)
+	router.GET("/:key", GetKey)
 
 	t.Run("get non-existent file", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
-		req, _ := http.NewRequest("GET", "/nothinghere1/nothinghere1", nil)
+		req, _ := http.NewRequest("GET", "/nothinghere", nil)
 		rr := httptest.NewRecorder()
 
 		router.ServeHTTP(rr, req)
@@ -89,36 +111,12 @@ func TestGetKey(t *testing.T) {
 
 		index.I.Regenerate()
 
-		req, _ := http.NewRequest("GET", "/get/test", nil)
+		req, _ := http.NewRequest("GET", "/test", nil)
 		rr := httptest.NewRecorder()
 
 		router.ServeHTTP(rr, req)
 		assertHTTPStatus(t, rr, http.StatusOK)
-		assertHTTPBody(t, rr, map[string]interface{}{
-			"field": "value",
-		})
-	})
-}
-
-func TestRegenerateIndex(t *testing.T) {
-	router := httprouter.New()
-	router.POST("/regenerate", RegenerateIndex)
-
-	t.Run("test regenerate modifies index", func(t *testing.T) {
-		index.I.SetFileSystem(af.NewMemMapFs())
-
-		index.I.Regenerate()
-
-		makeNewJSON("test", exampleJSON)
-		assertEmptySlice(t, index.I.ListKeys())
-
-		req, _ := http.NewRequest("POST", "/regenerate", nil)
-		rr := httptest.NewRecorder()
-
-		router.ServeHTTP(rr, req)
-		assertHTTPStatus(t, rr, http.StatusOK)
-
-		assertSliceContains(t, index.I.ListKeys(), "test")
+		assertHTTPBody(t, rr, exampleJSON)
 	})
 }
 
@@ -129,7 +127,7 @@ func TestGetKeyField(t *testing.T) {
 	t.Run("get field of non-existent key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
-		req, _ := http.NewRequest("GET", "/nothinghere1/nothinghere2/nothinghere3", nil)
+		req, _ := http.NewRequest("GET", "/nothinghere1/nothinghere2", nil)
 		rr := httptest.NewRecorder()
 
 		router.ServeHTTP(rr, req)
@@ -191,5 +189,146 @@ func TestGetKeyField(t *testing.T) {
 		router.ServeHTTP(rr, req)
 		assertHTTPStatus(t, rr, http.StatusOK)
 		assertHTTPBody(t, rr, nested)
+	})
+}
+
+func TestUpdateKey(t *testing.T) {
+	router := httprouter.New()
+	router.PUT("/:key", UpdateKey)
+
+	t.Run("update non-existent key", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+		byteReader := mapToIOReader(exampleJSON)
+
+		req, _ := http.NewRequest("PUT", "/something", byteReader)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertSliceContains(t, index.I.ListKeys(), "something")
+		assertJSONFileContents(t, index.I, "something", exampleJSON)
+	})
+
+	t.Run("update existing key", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+		shortTest := map[string]interface{}{
+			"qwer": "asdf",
+		}
+
+		_ = makeNewJSON("something", shortTest)
+		index.I.Regenerate()
+
+		assertJSONFileContents(t, index.I, "something", shortTest)
+		byteReader := mapToIOReader(exampleJSON)
+
+		req, _ := http.NewRequest("PUT", "/something", byteReader)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertSliceContains(t, index.I.ListKeys(), "something")
+		assertJSONFileContents(t, index.I, "something", exampleJSON)
+	})
+
+	t.Run("update key with non-json bytes", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		jsonBytes := []byte("non-json bytes")
+		byteReader := bytes.NewReader(jsonBytes)
+
+		req, _ := http.NewRequest("PUT", "/something", byteReader)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertSliceContains(t, index.I.ListKeys(), "something")
+		assertRawFileContents(t, index.I, "something", jsonBytes)
+	})
+}
+
+func TestDeleteKey(t *testing.T) {
+	router := httprouter.New()
+	router.DELETE("/:key", DeleteKey)
+
+	t.Run("delete non-existent key", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		req, _ := http.NewRequest("DELETE", "/nothinghere", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusNotFound)
+	})
+
+	t.Run("delete existing key", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+		_ = makeNewJSON("test", exampleJSON)
+		index.I.Regenerate()
+
+		req, _ := http.NewRequest("DELETE", "/test", nil)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertEmptySlice(t, index.I.ListKeys())
+	})
+}
+
+func TestPatchKeyField(t *testing.T) {
+	router := httprouter.New()
+	router.PATCH("/:key/:field", PatchKeyField)
+
+	t.Run("patch field of non-existent key", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		byteReader := mapToIOReader(exampleJSON)
+
+		req, _ := http.NewRequest("PATCH", "/nofile/nofield", byteReader)
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusNotFound)
+	})
+
+	t.Run("patch non-existent field of existing key", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		_ = makeNewJSON("test", exampleJSON)
+		index.I.Regenerate()
+
+		byteReader := mapToIOReader(exampleJSON)
+
+		req, _ := http.NewRequest("PATCH", "/test/nofield", byteReader)
+		rr := httptest.NewRecorder()
+
+		expected := map[string]interface{}{
+			"field":   "value",
+			"nofield": exampleJSON,
+		}
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertJSONFileContents(t, index.I, "test", expected)
+	})
+
+	t.Run("patch field of existing key with non-json bytes", func(t *testing.T) {
+		index.I.SetFileSystem(af.NewMemMapFs())
+
+		_ = makeNewJSON("test", exampleJSON)
+		index.I.Regenerate()
+
+		jsonBytes := []byte("non-json bytes")
+		byteReader := bytes.NewReader(jsonBytes)
+
+		req, _ := http.NewRequest("PATCH", "/test/field", byteReader)
+		rr := httptest.NewRecorder()
+
+		expected := map[string]interface{}{
+			"field": "non-json bytes",
+		}
+
+		router.ServeHTTP(rr, req)
+		assertHTTPStatus(t, rr, http.StatusOK)
+		assertJSONFileContents(t, index.I, "test", expected)
 	})
 }

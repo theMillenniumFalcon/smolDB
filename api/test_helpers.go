@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	af "github.com/spf13/afero"
 	"github.com/themillenniumfalcon/smolDB/index"
 )
@@ -67,6 +69,39 @@ func makeNewJSON(name string, contents map[string]interface{}) *index.File {
 	jsonData, _ := json.Marshal(contents)
 	af.WriteFile(index.I.FileSystem, name+".json", jsonData, 0644)
 	return &index.File{FileName: name}
+}
+
+func assertJSONFileContents(t *testing.T, ind *index.FileIndex, key string, wanted map[string]interface{}) {
+	f, ok := ind.Lookup(key)
+	if !ok {
+		t.Errorf("couldn't find key %s in index", key)
+	}
+
+	m, err := f.ToMap()
+	if err != nil {
+		t.Errorf("got error %+v parsing json when shouldn't have", err.Error())
+	}
+
+	if !cmp.Equal(m, wanted) {
+		t.Errorf("file content %+v didn't match! wanted %+v", m, wanted)
+	}
+}
+
+func assertRawFileContents(t *testing.T, ind *index.FileIndex, key string, wanted []byte) {
+	f, ok := ind.Lookup(key)
+	if !ok {
+		t.Errorf("couldn't find key %s in index", key)
+	}
+
+	b, _ := f.GetByteArray()
+	if !cmp.Equal(b, wanted) {
+		t.Errorf("file content %+v didn't match! wanted %+v", string(b), string(wanted))
+	}
+}
+
+func mapToIOReader(m map[string]interface{}) io.Reader {
+	jsonData, _ := json.Marshal(m)
+	return bytes.NewReader(jsonData)
 }
 
 var exampleJSON = map[string]interface{}{
