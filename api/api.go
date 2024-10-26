@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/themillenniumfalcon/smolDB/index"
@@ -14,7 +15,40 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
-func resolveReferences(w http.ResponseWriter, jsonVal interface{}) interface{} {
+func resolveString(valString string, depthLeft int) interface{} {
+	key := strings.Replace(valString, "REF::", "", 1)
+
+	file, ok := index.I.Lookup(key)
+	if ok {
+		jsonMap, err := file.ToMap()
+		if err != nil {
+			errMessage := fmt.Sprintf("REF::ERR key '%s' cannot be parsed into json: %s", key, err.Error())
+			return errMessage
+		}
+
+		return resolveReferences(jsonMap, depthLeft-1)
+	}
+
+	return fmt.Sprintf("REF::ERR key '%s' not found", key)
+}
+
+func getMaxDepthParam(r *http.Request) int {
+	maxDepth := 3
+	maxDepthStr := r.URL.Query().Get("depth")
+
+	parsedInt, err := strconv.Atoi(maxDepthStr)
+	if err == nil {
+		maxDepth = parsedInt
+	}
+
+	return maxDepth
+}
+
+func resolveReferences(jsonVal interface{}, depthLeft int) interface{} {
+	if depthLeft < 1 {
+		return jsonVal
+	}
+
 	val := reflect.ValueOf(jsonVal)
 
 	switch val.Kind() {
@@ -22,45 +56,32 @@ func resolveReferences(w http.ResponseWriter, jsonVal interface{}) interface{} {
 		valString := val.String()
 
 		if strings.Contains(valString, "REF::") {
-			key := strings.Replace(valString, "REF::", "", 1)
-			file, ok := index.I.Lookup(key)
-
-			if ok {
-				jsonMap, err := file.ToMap()
-				if err != nil {
-					w.WriteHeader(http.StatusBadRequest)
-					log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
-				}
-
-				return resolveReferences(w, jsonMap)
-			}
-
-			w.WriteHeader(http.StatusNotFound)
-			log.WWarn(w, "key '%s' not found", key)
+			resolvedString := resolveString(valString, depthLeft)
+			return resolvedString
 		}
-
 		return valString
+
 	case reflect.Slice:
 		numberOfValues := val.Len()
 		newSlice := make([]interface{}, numberOfValues)
 
 		for i := 0; i < numberOfValues; i++ {
 			pointer := val.Index(i)
-			newSlice[i] = resolveReferences(w, pointer.Interface())
+			newSlice[i] = resolveReferences(pointer.Interface(), depthLeft)
 		}
-
 		return newSlice
+
 	case reflect.Map:
 		newMap := make(map[string]interface{})
 
 		for _, key := range val.MapKeys() {
 			nestedVal := val.MapIndex(key).Interface()
-			newMap[key.String()] = resolveReferences(w, nestedVal)
+			newMap[key.String()] = resolveReferences(nestedVal, depthLeft)
 		}
-
 		return newMap
+
 	default:
-		return val
+		return jsonVal
 	}
 }
 
@@ -107,7 +128,9 @@ func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		resolvedJsonMap := resolveReferences(w, jsonMap)
+		maxDepth := getMaxDepthParam(r)
+		resolvedJsonMap := resolveReferences(jsonMap, maxDepth)
+
 		jsonData, _ := json.Marshal(resolvedJsonMap)
 		fmt.Fprintf(w, "%+v", string(jsonData))
 		return
@@ -140,7 +163,9 @@ func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		resolvedValue := resolveReferences(w, val)
+		maxDepth := getMaxDepthParam(r)
+		resolvedValue := resolveReferences(val, maxDepth)
+
 		jsonData, _ := json.Marshal(resolvedValue)
 		fmt.Fprintf(w, "%+v", string(jsonData))
 		return
