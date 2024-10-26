@@ -192,21 +192,3 @@ func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 func NotFound(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "404 page not found", http.StatusNotFound)
 }
-
-func Serve() {
-	router := httprouter.New()
-
-	router.GET("/", Health)
-	router.POST("/regenerate", RegenerateIndex)
-	router.GET("/getKeys", GetKeys)
-	router.GET("/:key", GetKey)
-	router.GET("/:key/:field", GetKeyField)
-	router.PUT("/:key", UpdateKey)
-	router.DELETE("/:key", DeleteKey)
-	router.PATCH("/:key/:field", PatchKeyField)
-
-	router.NotFound = http.HandlerFunc(NotFound)
-
-	log.Info("Starting API server on port 8080...")
-	log.Fatal(http.ListenAndServe(":8080", router))
-}
