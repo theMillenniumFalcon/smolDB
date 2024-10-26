@@ -15,6 +15,13 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+const (
+	successStatus     = http.StatusOK
+	notFoundStatus    = http.StatusNotFound
+	badRequestStatus  = http.StatusBadRequest
+	serverErrorStatus = http.StatusInternalServerError
+)
+
 func resolveString(valString string, depthLeft int) interface{} {
 	key := strings.Replace(valString, "REF::", "", 1)
 
@@ -122,7 +129,7 @@ func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 		jsonMap, err := file.ToMap()
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(badRequestStatus)
 			log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
 			return
 		}
@@ -136,7 +143,7 @@ func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	w.WriteHeader(http.StatusNotFound)
+	w.WriteHeader(notFoundStatus)
 	log.WWarn(w, "key '%s' not found", key)
 }
 
@@ -150,14 +157,14 @@ func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if ok {
 		jsonMap, err := file.ToMap()
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(badRequestStatus)
 			log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
 			return
 		}
 
 		val, ok := jsonMap[field]
 		if !ok {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(badRequestStatus)
 			log.WWarn(w, "err key '%s' does not have field '%s'", key, field)
 			return
 		}
@@ -171,7 +178,7 @@ func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	w.WriteHeader(http.StatusNotFound)
+	w.WriteHeader(notFoundStatus)
 	log.WWarn(w, "key '%s' not found", key)
 }
 
@@ -182,14 +189,14 @@ func UpdateKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(badRequestStatus)
 		log.WWarn(w, "err reading body when key '%s': %s", key, err.Error())
 		return
 	}
 
 	err = index.I.Put(file, bodyBytes)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(serverErrorStatus)
 		log.WWarn(w, "err updating key '%s': %s", key, err.Error())
 		return
 	}
@@ -209,7 +216,7 @@ func DeleteKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	if ok {
 		err := index.I.Delete(file)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(serverErrorStatus)
 			log.WWarn(w, "err unable to delete key '%s': '%s'", key, err.Error())
 			return
 		}
@@ -217,7 +224,7 @@ func DeleteKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		return
 	}
 
-	w.WriteHeader(http.StatusNotFound)
+	w.WriteHeader(notFoundStatus)
 	log.WWarn(w, "key '%s' does not exist", key)
 }
 
@@ -228,7 +235,7 @@ func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(badRequestStatus)
 		log.WWarn(w, "err reading body with key '%s': %s", key, err.Error())
 		return
 	}
@@ -237,7 +244,7 @@ func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	if ok {
 		jsonMap, err := file.ToMap()
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(badRequestStatus)
 			log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
 			return
 		}
@@ -254,20 +261,20 @@ func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 
 		err = file.ReplaceContent(string(jsonData))
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(serverErrorStatus)
 			log.WWarn(w, "err setting content of key '%s': %s", key, err.Error())
 			return
 		}
 
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(successStatus)
 		log.WInfo(w, "patch field '%s' of key '%s' successful", field, key)
 		return
 	}
 
-	w.WriteHeader(http.StatusNotFound)
+	w.WriteHeader(notFoundStatus)
 	log.WWarn(w, "key '%s' not found", key)
 }
 
 func NotFound(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "404 page not found", http.StatusNotFound)
+	http.Error(w, "404 page not found", notFoundStatus)
 }

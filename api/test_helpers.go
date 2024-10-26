@@ -103,7 +103,3 @@ func mapToIOReader(m map[string]interface{}) io.Reader {
 	jsonData, _ := json.Marshal(m)
 	return bytes.NewReader(jsonData)
 }
-
-var exampleJSON = map[string]interface{}{
-	"field": "value",
-}
