@@ -45,9 +45,13 @@ func execInput(input string, dir string) (err error) {
 		os.Exit(0)
 	case "lookup":
 		return lookupWrapper(args)
+	case "delete":
+		return deleteWrapper(args)
+	case "regenerate":
+		index.I.Regenerate()
 	default:
 		log.Warn("'%s' is not a valid command.", args[0])
-		log.Info("valid commands: index, lookup <key>, delete <key>, exit")
+		log.Info("valid commands: index, lookup <key>, delete <key>, regenerate, exit")
 	}
 
 	return err
@@ -90,5 +94,28 @@ func lookupWrapper(args []string) error {
 
 	log.Success("found key %s:", key)
 	log.Info("%s", prettyJSON.String())
+	return nil
+}
+
+func deleteWrapper(args []string) error {
+	if len(args) < 2 {
+		err := fmt.Errorf("no key provided")
+		return err
+	}
+
+	key := args[1]
+
+	f, ok := index.I.Lookup(key)
+	if !ok {
+		err := fmt.Errorf("key doesn't exist")
+		return err
+	}
+
+	err := index.I.Delete(f)
+	if err != nil {
+		return err
+	}
+
+	log.Success("deleted key %s", key)
 	return nil
 }
