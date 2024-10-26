@@ -122,6 +122,15 @@ func main() {
 				Name:    "shell",
 				Aliases: []string{"sh"},
 				Usage:   "start an interactive smoldb shell",
+				Flags: []cli.Flag{
+					&cli.IntFlag{
+						Name:        "port",
+						Aliases:     []string{"p"},
+						Value:       8080,
+						Usage:       "port to run smoldb on",
+						DefaultText: "8080",
+					},
+				},
 				Action: func(c *cli.Context) error {
 					return shell(c.String("dir"))
 				},
