@@ -14,10 +14,25 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func cleanup(lockdir string) {
-	log.Info("caught term signal! cleaning up...")
+func acquireLock(dir string) error {
+	_, err := index.I.FileSystem.Stat(getLockLocation(dir))
 
-	err := index.I.FileSystem.Remove(lockdir)
+	if os.IsNotExist(err) {
+		_, err = index.I.FileSystem.Create(getLockLocation(dir))
+		return err
+	}
+
+	return fmt.Errorf("couldn't acquire lock on %s", dir)
+}
+func releaseLock(dir string) error {
+	lockdir := getLockLocation(dir)
+	return index.I.FileSystem.Remove(lockdir)
+}
+
+func cleanup(dir string) {
+	log.Info("\ncaught term signal! cleaning up...")
+
+	err := releaseLock(dir)
 	if err != nil {
 		log.Warn("couldn't remove lock")
 		log.Fatal(err)
@@ -39,24 +54,25 @@ func setup(dir string) {
 	index.I = index.NewFileIndex(dir)
 	index.I.Regenerate()
 
-	_, err := index.I.FileSystem.Create(getLockLocation(dir))
+	err := acquireLock(dir)
 	if err != nil {
-		log.Warn("couldn't acquire lock on %s", dir)
 		log.Fatal(err)
 		return
 	}
+
+	index.I.Regenerate()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		cleanup(getLockLocation(dir))
+		cleanup(dir)
 		os.Exit(1)
 	}()
 }
 
 func serve(port int, dir string) error {
-	log.SetLoggingLevel(log.INFO)
+	log.Info("initializing smolDB")
 	setup(dir)
 
 	router := httprouter.New()
@@ -77,7 +93,7 @@ func serve(port int, dir string) error {
 func main() {
 	app := &cli.App{
 		Name:  "smoldb",
-		Usage: "a in-memory JSON database",
+		Usage: "an in-memory JSON database",
 		Flags: []cli.Flag{
 			&cli.IntFlag{
 				Name:        "port",
@@ -107,7 +123,7 @@ func main() {
 				Aliases: []string{"sh"},
 				Usage:   "start an interactive smoldb shell",
 				Action: func(c *cli.Context) error {
-					return nil
+					return shell(c.String("dir"))
 				},
 			},
 		},
