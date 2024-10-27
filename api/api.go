@@ -38,11 +38,6 @@ func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func RegenerateIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	index.I.Regenerate()
-	log.WInfo(w, "regenerated index")
-}
-
 func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Info("retrieving index")
 	files := index.I.ListKeys()
@@ -57,6 +52,11 @@ func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	jsonData, _ := json.Marshal(data)
 	fmt.Fprintf(w, "%+v", string(jsonData))
+}
+
+func RegenerateIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	index.I.Regenerate()
+	log.WInfo(w, "regenerated index")
 }
 
 func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
@@ -79,41 +79,6 @@ func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		resolvedJsonMap := index.ResolveReferences(jsonMap, maxDepth)
 
 		jsonData, _ := json.Marshal(resolvedJsonMap)
-		fmt.Fprintf(w, "%+v", string(jsonData))
-		return
-	}
-
-	w.WriteHeader(notFoundStatus)
-	log.WWarn(w, "key '%s' not found", key)
-}
-
-func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
-	key := ps.ByName("key")
-	field := ps.ByName("field")
-
-	log.Info("get field '%s' in key '%s'", field, key)
-
-	file, ok := index.I.Lookup(key)
-	if ok {
-		jsonMap, err := file.ToMap()
-		if err != nil {
-			w.WriteHeader(badRequestStatus)
-			log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
-			return
-		}
-
-		val, ok := jsonMap[field]
-		if !ok {
-			w.WriteHeader(badRequestStatus)
-			log.WWarn(w, "err key '%s' does not have field '%s'", key, field)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		maxDepth := getMaxDepthParam(r)
-		resolvedValue := index.ResolveReferences(val, maxDepth)
-
-		jsonData, _ := json.Marshal(resolvedValue)
 		fmt.Fprintf(w, "%+v", string(jsonData))
 		return
 	}
@@ -166,6 +131,41 @@ func DeleteKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
 	w.WriteHeader(notFoundStatus)
 	log.WWarn(w, "key '%s' does not exist", key)
+}
+
+func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+	key := ps.ByName("key")
+	field := ps.ByName("field")
+
+	log.Info("get field '%s' in key '%s'", field, key)
+
+	file, ok := index.I.Lookup(key)
+	if ok {
+		jsonMap, err := file.ToMap()
+		if err != nil {
+			w.WriteHeader(badRequestStatus)
+			log.WWarn(w, "err key '%s' cannot be parsed into json: %s", key, err.Error())
+			return
+		}
+
+		val, ok := jsonMap[field]
+		if !ok {
+			w.WriteHeader(badRequestStatus)
+			log.WWarn(w, "err key '%s' does not have field '%s'", key, field)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		maxDepth := getMaxDepthParam(r)
+		resolvedValue := index.ResolveReferences(val, maxDepth)
+
+		jsonData, _ := json.Marshal(resolvedValue)
+		fmt.Fprintf(w, "%+v", string(jsonData))
+		return
+	}
+
+	w.WriteHeader(notFoundStatus)
+	log.WWarn(w, "key '%s' not found", key)
 }
 
 func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
