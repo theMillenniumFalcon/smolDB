@@ -41,3 +41,5 @@ next-env.d.ts
 
 # lock
 smoldb_lock
+
+db

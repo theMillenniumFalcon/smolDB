@@ -1,6 +1,0 @@
-{
-  "test": {
-    "key1": "value1",
-    "key2": "REF::value2"
-  }
-}
