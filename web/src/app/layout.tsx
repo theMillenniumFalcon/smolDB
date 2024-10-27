@@ -27,14 +27,12 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <main className="flex min-h-screen w-screen items-center flex-col justify-start sm:px-8 px-4">
             <nav className="z-10 h-20 items-center justify-between w-full max-w-screen-md flex">
-              <Link href="/">
-                <Image
-                  src="/logo.svg"
-                  alt="logo"
-                  width="18"
-                  height="18"
-                />
-              </Link>
+              <Image
+                src="/logo.svg"
+                alt="logo"
+                width="18"
+                height="18"
+              />
               <ModeToggle />
             </nav>
 
