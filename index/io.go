@@ -1,3 +1,5 @@
+// provides file system operations for a simple JSON-based database
+// implements thread-safe operations to ensure thread safety
 package index
 
 import (
@@ -10,6 +12,8 @@ import (
 	"github.com/themillenniumfalcon/smolDB/log"
 )
 
+// scans a directory and returns a list of JSON file names without their extension,
+// filters for .json files only and returns their base names
 func crawlDirectory(directory string) []string {
 	files, err := af.ReadDir(I.FileSystem, directory)
 	if err != nil {
@@ -29,15 +33,19 @@ func crawlDirectory(directory string) []string {
 	return res
 }
 
+// replaces the entire content of a file with the provided string,
+// uses mutex locking to ensure thread safety
 func (f *File) ReplaceContent(str string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
+	// create (or truncate) the file
 	_, err := I.FileSystem.Create(f.ResolvePath())
 	if err != nil {
 		return err
 	}
 
+	// open the file for writing
 	file, err := I.FileSystem.OpenFile(f.ResolvePath(), os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		return err
@@ -45,6 +53,7 @@ func (f *File) ReplaceContent(str string) error {
 
 	defer file.Close()
 
+	// write the new content
 	_, e := file.WriteString(str)
 	if e != nil {
 		return err
@@ -53,6 +62,8 @@ func (f *File) ReplaceContent(str string) error {
 	return nil
 }
 
+// removes the file from the filesystem
+// uses mutex locking to ensure thread safety
 func (f *File) Delete() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -65,6 +76,8 @@ func (f *File) Delete() error {
 	return nil
 }
 
+// reads the entire file content and returns it as a byte slice
+// uses read lock to allow concurrent reads
 func (f *File) GetByteArray() ([]byte, error) {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -72,12 +85,15 @@ func (f *File) GetByteArray() ([]byte, error) {
 	return af.ReadFile(I.FileSystem, f.ResolvePath())
 }
 
+// reads the file content and unmarshals it into a map
+// expects the file content to be valid JSON
 func (f *File) ToMap() (res map[string]interface{}, err error) {
 	bytes, err := f.GetByteArray()
 	if err != nil {
 		return res, err
 	}
 
+	// parse the JSON content into a map
 	err = json.Unmarshal(bytes, &res)
 	return res, err
 }
