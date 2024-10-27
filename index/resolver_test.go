@@ -1,4 +1,4 @@
-// provides comprehensive tests for the reference resolution system
+// provides tests for the reference resolution system
 package index
 
 import (

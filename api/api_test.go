@@ -1,3 +1,4 @@
+// provides tests for HTTP handlers and routing logic for the core API
 package api
 
 import (
@@ -12,20 +13,25 @@ import (
 	"github.com/themillenniumfalcon/smolDB/index"
 )
 
+// exampleJSON is a simple test fixture used across multiple tests
 var exampleJSON = map[string]interface{}{
 	"field": "value",
 }
 
+// sets up the test environment by initializing a new file index
+// and handles proper test cleanup
 func TestMain(m *testing.M) {
 	index.I = index.NewFileIndex(".")
 	exitVal := m.Run()
 	os.Exit(exitVal)
 }
 
+// verifies the behavior of the Health endpoint
 func TestHealth(t *testing.T) {
 	router := httprouter.New()
 	router.GET("/", Health)
 
+	// Test Case 1: test health checkpoint
 	t.Run("check health endpoint", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
 		rr := httptest.NewRecorder()
@@ -38,11 +44,16 @@ func TestHealth(t *testing.T) {
 		})
 	})
 }
+
+// verifies that the regenerate endpoint properly rebuilds the file index when called
+// it tests that new files are detected after regeneration
 func TestRegenerateIndex(t *testing.T) {
 	router := httprouter.New()
 	router.POST("/regenerate", RegenerateIndex)
 
+	// Test Case 1: index gets regenerated
 	t.Run("test regenerate modifies index", func(t *testing.T) {
+		// use in-memory filesystem for testing
 		index.I.SetFileSystem(af.NewMemMapFs())
 
 		index.I.Regenerate()
@@ -60,10 +71,12 @@ func TestRegenerateIndex(t *testing.T) {
 	})
 }
 
+// verifies the behavior of the GetKeys endpoint under different scenarios
 func TestGetKeys(t *testing.T) {
 	router := httprouter.New()
 	router.GET("/getKeys", GetKeys)
 
+	// Test Case 1: when the index is empty
 	t.Run("get empty index", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -77,6 +90,7 @@ func TestGetKeys(t *testing.T) {
 		})
 	})
 
+	// Test Case 2: when the index contains multiple files
 	t.Run("get index with files", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -94,10 +108,12 @@ func TestGetKeys(t *testing.T) {
 	})
 }
 
+// verifies the behavior of the GetKey endpoint
 func TestGetKey(t *testing.T) {
 	router := httprouter.New()
 	router.GET("/:key", GetKey)
 
+	// Test Case 1: when requesting a non-existent file (should return 404)
 	t.Run("get non-existent file", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -108,6 +124,7 @@ func TestGetKey(t *testing.T) {
 		assertHTTPStatus(t, rr, http.StatusNotFound)
 	})
 
+	// Test Case 2: when requesting an existing file (should return file contents)
 	t.Run("get file", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -124,10 +141,12 @@ func TestGetKey(t *testing.T) {
 	})
 }
 
+// verifies the behavior of getting specific fields from JSON files
 func TestGetKeyField(t *testing.T) {
 	router := httprouter.New()
 	router.GET("/:key/:field", GetKeyField)
 
+	// Test Case 1: when the key doesn't exist
 	t.Run("get field of non-existent key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -138,6 +157,7 @@ func TestGetKeyField(t *testing.T) {
 		assertHTTPStatus(t, rr, http.StatusNotFound)
 	})
 
+	// Test Case 2: when the field doesn't exist in the JSON
 	t.Run("get non-existent field of key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -153,6 +173,7 @@ func TestGetKeyField(t *testing.T) {
 
 	})
 
+	// Test Case 3: when getting a simple value field
 	t.Run("get field of key simple value", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -168,6 +189,7 @@ func TestGetKeyField(t *testing.T) {
 		assertHTTPContains(t, rr, []string{"value"})
 	})
 
+	// Test Case 4: when getting a nested object field
 	t.Run("get field of key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -196,10 +218,12 @@ func TestGetKeyField(t *testing.T) {
 	})
 }
 
+// verifies the behavior of updating keys in the database
 func TestUpdateKey(t *testing.T) {
 	router := httprouter.New()
 	router.PUT("/:key", UpdateKey)
 
+	// Test Case 1: when updating a non-existent key (should create it)
 	t.Run("update non-existent key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 		byteReader := mapToIOReader(exampleJSON)
@@ -213,6 +237,7 @@ func TestUpdateKey(t *testing.T) {
 		assertJSONFileContents(t, index.I, "something", exampleJSON)
 	})
 
+	// Test Case 2: when updating an existing key (should overwrite it)
 	t.Run("update existing key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 		shortTest := map[string]interface{}{
@@ -234,6 +259,7 @@ func TestUpdateKey(t *testing.T) {
 		assertJSONFileContents(t, index.I, "something", exampleJSON)
 	})
 
+	// Test Case 3: when updating with non-JSON content (should store as raw bytes)
 	t.Run("update key with non-json bytes", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -250,10 +276,12 @@ func TestUpdateKey(t *testing.T) {
 	})
 }
 
+// verifies the behavior of deleting keys
 func TestDeleteKey(t *testing.T) {
 	router := httprouter.New()
 	router.DELETE("/:key", DeleteKey)
 
+	// Test Case 1: when attempting to delete a non-existent key (should return 404)
 	t.Run("delete non-existent key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -264,6 +292,7 @@ func TestDeleteKey(t *testing.T) {
 		assertHTTPStatus(t, rr, http.StatusNotFound)
 	})
 
+	// Test Case 2: when deleting an existing key (should remove it from index)
 	t.Run("delete existing key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 		_ = makeNewJSON("test", exampleJSON)
@@ -278,10 +307,12 @@ func TestDeleteKey(t *testing.T) {
 	})
 }
 
+// verifies the behavior of patching specific fields in JSON files
 func TestPatchKeyField(t *testing.T) {
 	router := httprouter.New()
 	router.PATCH("/:key/:field", PatchKeyField)
 
+	// Test Case 1: when the key doesn't exist
 	t.Run("patch field of non-existent key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -294,6 +325,7 @@ func TestPatchKeyField(t *testing.T) {
 		assertHTTPStatus(t, rr, http.StatusNotFound)
 	})
 
+	// Test Case 2: when patching a non-existent field (should add it)
 	t.Run("patch non-existent field of existing key", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 
@@ -315,6 +347,7 @@ func TestPatchKeyField(t *testing.T) {
 		assertJSONFileContents(t, index.I, "test", expected)
 	})
 
+	// Test Case 3: when patching with non-JSON content
 	t.Run("patch field of existing key with non-json bytes", func(t *testing.T) {
 		index.I.SetFileSystem(af.NewMemMapFs())
 

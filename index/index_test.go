@@ -1,5 +1,4 @@
-// implements file system operations for JSON-based data storage
-// and provides utilities for managing file indices and content manipulation
+// provides tests for utilities for managing file indices and content manipulation
 package index
 
 import (

@@ -1,4 +1,4 @@
-// provides testing utilities
+// provides testing utilities for index and IO tests
 package index
 
 import (

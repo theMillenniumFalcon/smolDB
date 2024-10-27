@@ -1,4 +1,4 @@
-// provides functionality for managing and manipulating a file-based index system
+// provides tests for for managing and manipulating a file-based index system
 package index
 
 import (

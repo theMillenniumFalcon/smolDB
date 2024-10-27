@@ -1,3 +1,4 @@
+// provides the core API functions that are used for smolDB server and shell
 package api
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+// HTTP status codes
 const (
 	successStatus     = http.StatusOK
 	notFoundStatus    = http.StatusNotFound
@@ -20,6 +22,8 @@ const (
 	serverErrorStatus = http.StatusInternalServerError
 )
 
+// extracts the 'depth' query parameter from the request URL
+// returns default value of 3 if not specified or if parsing fails
 func getMaxDepthParam(r *http.Request) int {
 	maxDepth := 3
 	maxDepthStr := r.URL.Query().Get("depth")
@@ -32,12 +36,16 @@ func getMaxDepthParam(r *http.Request) int {
 	return maxDepth
 }
 
+// handles GET /health
+// returns a simple status message indicating the service is running
 func Health(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	response := map[string]string{"message": "smolDB is working fine!"}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
+// handles GET /keys
+// returns a list of all keys in the database
 func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	log.Info("retrieving index")
 	files := index.I.ListKeys()
@@ -49,16 +57,20 @@ func GetKeys(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-
 	jsonData, _ := json.Marshal(data)
 	fmt.Fprintf(w, "%+v", string(jsonData))
 }
 
+// handles POST /regenerate
+// rebuilds the entire database index
 func RegenerateIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	index.I.Regenerate()
 	log.WInfo(w, "regenerated index")
 }
 
+// handles GET /key/:key
+// returns the full JSON content for a specific key
+// supports recursive resolution of references up to specified depth
 func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("key")
 	log.Info("get key '%s'", key)
@@ -87,6 +99,8 @@ func GetKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.WWarn(w, "key '%s' not found", key)
 }
 
+// handles PUT /key/:key
+// creates or updates the content for a specific key
 func UpdateKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("key")
 	log.Info("put key '%s'", key)
@@ -113,6 +127,8 @@ func UpdateKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.WInfo(w, "create '%s' successful", key)
 }
 
+// handles DELETE /key/:key
+// removes a key and its associated content from the database
 func DeleteKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("key")
 	log.Info("delete key '%s'", key)
@@ -133,6 +149,9 @@ func DeleteKey(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.WWarn(w, "key '%s' does not exist", key)
 }
 
+// handles GET /key/:key/field/:field
+// returns the value of a specific field within a key's JSON content
+// supports recursive resolution of references up to specified depth
 func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("key")
 	field := ps.ByName("field")
@@ -148,6 +167,7 @@ func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 			return
 		}
 
+		// look up the specified field
 		val, ok := jsonMap[field]
 		if !ok {
 			w.WriteHeader(badRequestStatus)
@@ -168,6 +188,9 @@ func GetKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	log.WWarn(w, "key '%s' not found", key)
 }
 
+// handles PATCH /key/:key/field/:field
+// updates a specific field within a key's JSON content
+// handles both primitive values and nested JSON objects
 func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 	key := ps.ByName("key")
 	field := ps.ByName("field")
@@ -193,8 +216,10 @@ func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 
 		err = json.Unmarshal(bodyBytes, &parsedJSON)
 		if err != nil {
+			// if parsing as JSON fails, treat it as a primitive value
 			jsonMap[field] = string(bodyBytes)
 		} else {
+			// if parsing succeeds, it's a JSON object
 			jsonMap[field] = parsedJSON
 		}
 		jsonData, _ := json.Marshal(jsonMap)
@@ -215,6 +240,8 @@ func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 	log.WWarn(w, "key '%s' not found", key)
 }
 
+// handles all unmatched routes
+// returns a standard 404 error
 func NotFound(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "404 page not found", notFoundStatus)
 }
