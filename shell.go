@@ -5,10 +5,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/julienschmidt/httprouter"
+	"github.com/themillenniumfalcon/smolDB/api"
 	"github.com/themillenniumfalcon/smolDB/index"
 	"github.com/themillenniumfalcon/smolDB/log"
 )
@@ -22,6 +25,7 @@ func shell(dir string) error {
 	setup(dir)
 	reader := bufio.NewReader(os.Stdin)
 
+	// the main shell loop that, displays a prompt, read user input, and executes input
 	for {
 		log.Prompt("smoldb> ")
 
@@ -42,24 +46,27 @@ func execInput(input string, dir string) (err error) {
 
 	switch args[0] {
 	case "index":
-		indexWrapper()
-	case "exit":
-		cleanup(dir)
-		os.Exit(0)
+		healthWrapper()
+	case "listAll":
+		listAllWrapper()
 	case "lookup":
 		return lookupWrapper(args)
 	case "delete":
 		return deleteWrapper(args)
 	case "regenerate":
 		index.I.Regenerate()
+	case "exit":
+		cleanup(dir)
+		os.Exit(0)
 	default:
 		log.Warn("'%s' is not a valid command.", args[0])
-		log.Info("valid commands: index, lookup <key> <depth>, delete <key>, regenerate, exit")
+		log.Info("valid commands: index, listAll, lookup <key> <depth>, delete <key>, regenerate, exit")
 	}
 
 	return err
 }
 
+// parses the depth parameter for lookups
 func parseDepthFromArgs(args []string) int {
 	if len(args) < 3 {
 		return DefaultDepth
@@ -71,7 +78,20 @@ func parseDepthFromArgs(args []string) int {
 	return DefaultDepth
 }
 
-func indexWrapper() {
+// check health
+func healthWrapper() error {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("GET", "/health", nil)
+
+	api.Health(w, r, httprouter.Params{})
+
+	fmt.Println(w.Body.String())
+
+	return nil
+}
+
+// list All Keys in the database index
+func listAllWrapper() {
 	files := index.I.ListKeys()
 	log.Success("found %d files in index:", len(files))
 
@@ -80,14 +100,15 @@ func indexWrapper() {
 	}
 }
 
+// key lookup
 func lookupWrapper(args []string) error {
 	if len(args) < 2 {
 		err := fmt.Errorf("no key provided")
 		return err
 	}
 
+	// ... input validation
 	key := args[1]
-
 	f, ok := index.I.Lookup(key)
 	if !ok {
 		err := fmt.Errorf("key doesn't exist")
@@ -105,6 +126,7 @@ func lookupWrapper(args []string) error {
 	log.Info("resolving reference to depth %d...", depth)
 	resolvedMap := index.ResolveReferences(m, depth)
 
+	// pretty print JSON output
 	b, err := json.Marshal(resolvedMap)
 	if err != nil {
 		return err
@@ -121,6 +143,7 @@ func lookupWrapper(args []string) error {
 	return nil
 }
 
+// key deletion
 func deleteWrapper(args []string) error {
 	if len(args) < 2 {
 		err := fmt.Errorf("no key provided")
