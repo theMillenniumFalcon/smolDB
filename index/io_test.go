@@ -1,3 +1,4 @@
+// provides functionality for managing and manipulating a file-based index system
 package index
 
 import (
@@ -5,20 +6,25 @@ import (
 	"testing"
 )
 
+// initializes the test environment and runs all tests
+// sets up a new FileIndex instance and handles test execution cleanup
 func TestMain(m *testing.M) {
 	I = NewFileIndex("")
 	exitVal := m.Run()
 	os.Exit(exitVal)
 }
 
+// verifies the directory crawling functionality
+// Tests the system's ability to identify and process JSON files while ignoring other file types
 func TestCrawlDirectory(t *testing.T) {
-
+	// Test Case 1: empty directory handling
 	t.Run("crawl empty directory", func(t *testing.T) {
 		setup()
 
 		checkDeepEquals(t, crawlDirectory(""), []string{})
 	})
 
+	// Test Case 2: multiple JSON files
 	t.Run("crawl directory with two files", func(t *testing.T) {
 		setup()
 
@@ -27,6 +33,7 @@ func TestCrawlDirectory(t *testing.T) {
 		checkDeepEquals(t, crawlDirectory(""), []string{"one", "two"})
 	})
 
+	// Test Case 3: file type filtering
 	t.Run("crawl directory with non json file", func(t *testing.T) {
 		setup()
 
@@ -36,8 +43,10 @@ func TestCrawlDirectory(t *testing.T) {
 	})
 }
 
+// verifies the JSON file to map conversion functionality
+// tests various JSON structure scenarios including flat, nested, and array contents
 func TestToMap(t *testing.T) {
-
+	// Test Case 1: flat JSON structure
 	t.Run("simple flat json to map", func(t *testing.T) {
 		setup()
 		I.FileSystem.Mkdir("db/", os.ModeAppend)
@@ -54,6 +63,7 @@ func TestToMap(t *testing.T) {
 		checkDeepEquals(t, expected, got)
 	})
 
+	// Test Case 2: JSON with array elements
 	t.Run("json with array", func(t *testing.T) {
 		setup()
 
@@ -71,6 +81,7 @@ func TestToMap(t *testing.T) {
 		checkJSONEquals(t, got, expected)
 	})
 
+	// Test Case 3: nested JSON structures
 	t.Run("deep nested with map", func(t *testing.T) {
 		setup()
 
@@ -91,8 +102,10 @@ func TestToMap(t *testing.T) {
 	})
 }
 
+// verifies the file content replacement functionality
+// tests both updating existing files and creating new files with new content
 func TestReplaceContent(t *testing.T) {
-
+	// Test Case 1: update existing file content
 	t.Run("update existing file", func(t *testing.T) {
 		setup()
 
@@ -116,6 +129,7 @@ func TestReplaceContent(t *testing.T) {
 		checkJSONEquals(t, got, new)
 	})
 
+	// Test Case 2: create and populate new file
 	t.Run("create new file", func(t *testing.T) {
 		setup()
 
@@ -136,8 +150,10 @@ func TestReplaceContent(t *testing.T) {
 	})
 }
 
+// verifies the file deletion functionality
+// tests both successful deletion of existing files and handling of non-existent files
 func TestDelete(t *testing.T) {
-
+	// Test Case 1: deletion of non-existent file
 	t.Run("delete non-existent file", func(t *testing.T) {
 		setup()
 
@@ -149,6 +165,7 @@ func TestDelete(t *testing.T) {
 		assertFileDoesNotExist(t, "doesnt-exist")
 	})
 
+	// Test Case 2: deletion of existing file
 	t.Run("delete existing file", func(t *testing.T) {
 		setup()
 

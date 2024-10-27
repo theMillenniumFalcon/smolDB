@@ -1,3 +1,5 @@
+// implements file system operations for JSON-based data storage
+// and provides utilities for managing file indices and content manipulation
 package index
 
 import (
@@ -7,7 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// tests the file path resolution functionality ensuring correct path
+// construction with and without directory prefixes
 func TestFile_ResolvePath(t *testing.T) {
+	// Test Case 1: path resolution without directory
 	t.Run("test path correct with empty dir", func(t *testing.T) {
 		setup()
 
@@ -18,6 +23,7 @@ func TestFile_ResolvePath(t *testing.T) {
 		checkDeepEquals(t, got, want)
 	})
 
+	// Test Case 2: path resolution with directory prefix
 	t.Run("file path correct with directories", func(t *testing.T) {
 		setup()
 
@@ -31,7 +37,10 @@ func TestFile_ResolvePath(t *testing.T) {
 	})
 }
 
+// tests the file lookup functionality verifying both successful
+// retrievals and handling of missing files
 func TestFileIndex_Lookup(t *testing.T) {
+	// Test Case 1: successful file lookup
 	t.Run("lookup existing file", func(t *testing.T) {
 		setup()
 
@@ -47,6 +56,7 @@ func TestFileIndex_Lookup(t *testing.T) {
 		checkDeepEquals(t, string(bytes), "test")
 	})
 
+	// Test Case 2: lookup of non-existent file
 	t.Run("lookup non-existent file", func(t *testing.T) {
 		setup()
 
@@ -57,7 +67,10 @@ func TestFileIndex_Lookup(t *testing.T) {
 	})
 }
 
+// tests the file deletion functionality ensuring proper handling
+// of both existing and non-existent files
 func TestFileIndex_Delete(t *testing.T) {
+	// Test Case 1: deletion of existing file
 	t.Run("delete file that exists", func(t *testing.T) {
 		setup()
 
@@ -69,6 +82,7 @@ func TestFileIndex_Delete(t *testing.T) {
 		checkKeyNotInIndex(t, key)
 	})
 
+	// Test Case 2: deletion of non-existent file
 	t.Run("delete file that does not exist", func(t *testing.T) {
 		setup()
 
@@ -83,7 +97,10 @@ func TestFileIndex_Delete(t *testing.T) {
 	})
 }
 
+// tests the directory listing functionality verifying correct behavior
+// for both empty and populated directories
 func TestFileIndex_List(t *testing.T) {
+	// Test Case 1: listing empty directory
 	t.Run("list empty dir", func(t *testing.T) {
 		setup()
 
@@ -91,6 +108,7 @@ func TestFileIndex_List(t *testing.T) {
 		checkDeepEquals(t, len(list), 0)
 	})
 
+	// Test Case 2: listing directory with multiple files
 	t.Run("list dir with two files", func(t *testing.T) {
 		setup()
 
@@ -102,7 +120,10 @@ func TestFileIndex_List(t *testing.T) {
 	})
 }
 
+// tests the index regeneration functionality ensuring proper updating
+// of the index when files are added or modified
 func TestFileIndex_Regenerate(t *testing.T) {
+	// Test Case 1: index update with new files
 	t.Run("test if new files are added to current index", func(t *testing.T) {
 		setup()
 
@@ -117,6 +138,7 @@ func TestFileIndex_Regenerate(t *testing.T) {
 		assert.True(t, sliceContains(I.ListKeys(), "regenerate2"))
 	})
 
+	// Test Case 2: selective directory regeneration
 	t.Run("test RegenerateNew correctly updates index with files in directory", func(t *testing.T) {
 		setup()
 
@@ -135,6 +157,8 @@ func TestFileIndex_Regenerate(t *testing.T) {
 	})
 }
 
+// tests the file creation and update functionality verifying proper handling
+// of content for both new and existing files
 func TestFileIndex_Put(t *testing.T) {
 	content := map[string]interface{}{
 		"array": []interface{}{
@@ -145,6 +169,7 @@ func TestFileIndex_Put(t *testing.T) {
 		},
 	}
 
+	// Test Case 1: creating new file with content
 	t.Run("create empty file with given content", func(t *testing.T) {
 		setup()
 
@@ -160,6 +185,7 @@ func TestFileIndex_Put(t *testing.T) {
 		checkContentEqual(t, key, content)
 	})
 
+	// Test Case 2: updating existing file with new content
 	t.Run("replace existing file with given content", func(t *testing.T) {
 		setup()
 
