@@ -1,9 +1,9 @@
 FROM golang:1.19-bullseye AS build-base
+ENV GO111MODULE=on
 
-WORKDIR /smoldb
+WORKDIR /smoldb/src
 
-# Copy only files required to install dependencies (better layer caching)
-COPY go.mod go.sum ./
+COPY . ./smoldb/src
 
 # Use cache mount to speed up install of existing dependencies
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -17,11 +17,11 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /go/bin/smoldb
 FROM scratch
 
 # Copy user from build stage
-COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=build-base /etc/passwd /etc/passwd
 
 # Copy smoldb
-COPY --from=builder /go/bin/smoldb /go/bin/smoldb
-COPY --from=builder /smoldb/src/db /go/bin/db
+COPY --from=build-base /go/bin/smoldb /go/bin/smoldb
+COPY --from=build-base /smoldb/src/db /go/bin/db
 WORKDIR /go/bin
 
 # Set entrypoint
