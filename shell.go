@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/themillenniumfalcon/smolDB/index"
 	"github.com/themillenniumfalcon/smolDB/log"
 )
+
+const DefaultDepth = 0
 
 func shell(dir string) error {
 	log.IsShellMode = true
@@ -51,10 +54,21 @@ func execInput(input string, dir string) (err error) {
 		index.I.Regenerate()
 	default:
 		log.Warn("'%s' is not a valid command.", args[0])
-		log.Info("valid commands: index, lookup <key>, delete <key>, regenerate, exit")
+		log.Info("valid commands: index, lookup <key> <depth>, delete <key>, regenerate, exit")
 	}
 
 	return err
+}
+
+func parseDepthFromArgs(args []string) int {
+	if len(args) < 3 {
+		return DefaultDepth
+	}
+	if parsedInt, err := strconv.Atoi(args[2]); err == nil {
+		return parsedInt
+	}
+
+	return DefaultDepth
 }
 
 func indexWrapper() {
@@ -80,7 +94,18 @@ func lookupWrapper(args []string) error {
 		return err
 	}
 
-	b, err := f.GetByteArray()
+	log.Success("found key %s:", key)
+
+	m, err := f.ToMap()
+	if err != nil {
+		return err
+	}
+
+	depth := parseDepthFromArgs(args)
+	log.Info("resolving reference to depth %d...", depth)
+	resolvedMap := index.ResolveReferences(m, depth)
+
+	b, err := json.Marshal(resolvedMap)
 	if err != nil {
 		return err
 	}
@@ -92,7 +117,6 @@ func lookupWrapper(args []string) error {
 		return err
 	}
 
-	log.Success("found key %s:", key)
 	log.Info("%s", prettyJSON.String())
 	return nil
 }
