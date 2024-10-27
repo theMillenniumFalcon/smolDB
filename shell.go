@@ -1,3 +1,5 @@
+// provides the shell interface for smolDB, allowing interactive
+// command-line operations on the database
 package main
 
 import (
@@ -16,8 +18,12 @@ import (
 	"github.com/themillenniumfalcon/smolDB/log"
 )
 
+// DefaultDepth defines the default depth for resolving nested references
+// when no depth parameter is provided
 const DefaultDepth = 0
 
+// shell initializes and runs the interactive shell interface for smolDB,
+// it takes a directory path as input where the database files are stored
 func shell(dir string) error {
 	log.IsShellMode = true
 	log.Info("starting smoldb shell...")
@@ -25,7 +31,7 @@ func shell(dir string) error {
 	setup(dir)
 	reader := bufio.NewReader(os.Stdin)
 
-	// the main shell loop that, displays a prompt, read user input, and executes input
+	// the main shell loop, displays a prompt, read user input, and executes input
 	for {
 		log.Prompt("smoldb> ")
 
@@ -40,6 +46,8 @@ func shell(dir string) error {
 	}
 }
 
+// execInput processes the user input and executes the corresponding command,
+// it supports commands: index, listAll, lookup, delete, regenerate, and exit
 func execInput(input string, dir string) (err error) {
 	input = strings.TrimSuffix(input, "\n")
 	args := strings.Split(input, " ")
@@ -66,7 +74,8 @@ func execInput(input string, dir string) (err error) {
 	return err
 }
 
-// parses the depth parameter for lookups
+// parseDepthFromArgs extracts and parses the depth parameter from command arguments,
+// returns DefaultDepth if no valid depth parameter is provided
 func parseDepthFromArgs(args []string) int {
 	if len(args) < 3 {
 		return DefaultDepth
@@ -74,11 +83,11 @@ func parseDepthFromArgs(args []string) int {
 	if parsedInt, err := strconv.Atoi(args[2]); err == nil {
 		return parsedInt
 	}
-
 	return DefaultDepth
 }
 
-// check health
+// healthWrapper checks the database health by making a mock HTTP request
+// to the health endpoint
 func healthWrapper() error {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("GET", "/health", nil)
@@ -86,11 +95,10 @@ func healthWrapper() error {
 	api.Health(w, r, httprouter.Params{})
 
 	fmt.Println(w.Body.String())
-
 	return nil
 }
 
-// list All Keys in the database index
+// listAllWrapper displays all keys present in the database index
 func listAllWrapper() {
 	files := index.I.ListKeys()
 	log.Success("found %d files in index:", len(files))
@@ -100,19 +108,18 @@ func listAllWrapper() {
 	}
 }
 
-// key lookup
+// lookupWrapper handles the lookup command, which retrieves and displays
+// the value associated with a given key, resolving nested references
+// up to the specified depth
 func lookupWrapper(args []string) error {
 	if len(args) < 2 {
-		err := fmt.Errorf("no key provided")
-		return err
+		return fmt.Errorf("no key provided")
 	}
 
-	// ... input validation
 	key := args[1]
 	f, ok := index.I.Lookup(key)
 	if !ok {
-		err := fmt.Errorf("key doesn't exist")
-		return err
+		return fmt.Errorf("key doesn't exist")
 	}
 
 	log.Success("found key %s:", key)
@@ -126,14 +133,13 @@ func lookupWrapper(args []string) error {
 	log.Info("resolving reference to depth %d...", depth)
 	resolvedMap := index.ResolveReferences(m, depth)
 
-	// pretty print JSON output
+	// pretty print the JSON output
 	b, err := json.Marshal(resolvedMap)
 	if err != nil {
 		return err
 	}
 
 	var prettyJSON bytes.Buffer
-
 	err = json.Indent(&prettyJSON, b, "", "\t")
 	if err != nil {
 		return err
@@ -143,19 +149,17 @@ func lookupWrapper(args []string) error {
 	return nil
 }
 
-// key deletion
+// deleteWrapper handles the delete command, which removes a key-value
+// pair from the database
 func deleteWrapper(args []string) error {
 	if len(args) < 2 {
-		err := fmt.Errorf("no key provided")
-		return err
+		return fmt.Errorf("no key provided")
 	}
 
 	key := args[1]
-
 	f, ok := index.I.Lookup(key)
 	if !ok {
-		err := fmt.Errorf("key doesn't exist")
-		return err
+		return fmt.Errorf("key doesn't exist")
 	}
 
 	err := index.I.Delete(f)

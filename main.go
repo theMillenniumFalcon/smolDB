@@ -1,3 +1,5 @@
+// provides the entry point for smolDB, implementing server and shell modes
+// along with lock management and graceful shutdown handling.
 package main
 
 import (
@@ -14,7 +16,8 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// constructs lock file path based on directory
+// constructs the path for the lock file based on the provided directory,
+// if dir is empty or ".", the lock file is created in the current directory
 func getLockLocation(dir string) string {
 	base := "smoldb_lock"
 	if dir == "" || dir == "." {
@@ -24,26 +27,29 @@ func getLockLocation(dir string) string {
 	return dir + "/" + base
 }
 
+// attempts to create a lock file to ensure only one instance
+// of smolDB is running against a specific database directory,
+// returns an error if the lock already exists or cannot be created
 func acquireLock(dir string) error {
-	// checks if lock file exists
 	_, err := index.I.FileSystem.Stat(getLockLocation(dir))
 
-	// creates lock if it doesn't exist
+	// create lock if it doesn't exist
 	if os.IsNotExist(err) {
 		_, err = index.I.FileSystem.Create(getLockLocation(dir))
 		return err
 	}
 
-	// returns error if lock already exists
 	return fmt.Errorf("couldn't acquire lock on %s", dir)
 }
 
-// removes the lock file
+// removes the lock file, allowing other instances to access the database
 func releaseLock(dir string) error {
 	lockdir := getLockLocation(dir)
 	return index.I.FileSystem.Remove(lockdir)
 }
 
+// performs graceful shutdown operations when the program is terminated,
+// releases the lock file and logs any errors that occur during cleanup
 func cleanup(dir string) {
 	log.Info("\ncaught term signal! cleaning up...")
 
@@ -56,6 +62,8 @@ func cleanup(dir string) {
 	}
 }
 
+// initializes the database, acquires the lock, and sets up signal handling
+// for graceful shutdown, also ensures the index is up to date
 func setup(dir string) {
 	// initialize database setup
 	log.Info("initializing smolDB")
@@ -69,8 +77,8 @@ func setup(dir string) {
 		return
 	}
 
-	// generating index once again
-	// ensures the index is fresh and accounts for any changes that might have occurred during startup
+	// generating index once again, ensures the index is fresh and accounts
+	// for any changes that might have occurred during startup
 	index.I.Regenerate()
 
 	// creates a buffered channel c to receive OS signals
@@ -86,6 +94,7 @@ func setup(dir string) {
 	}()
 }
 
+// initializes and starts the HTTP server with all API endpoints configured
 func serve(port int, dir string) error {
 	log.Info("initializing smolDB")
 	// initialize database
@@ -114,6 +123,7 @@ func serve(port int, dir string) error {
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), router)
 }
 
+// sets up the CLI interface and handles both server and shell modes of operation
 func main() {
 	app := &cli.App{
 		Name:  "smoldb",
