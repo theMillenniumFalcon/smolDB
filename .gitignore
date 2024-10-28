@@ -42,4 +42,9 @@ next-env.d.ts
 # lock
 smoldb_lock
 
+# directory
 db
+
+# smoldb builds
+smoldb
+dist
