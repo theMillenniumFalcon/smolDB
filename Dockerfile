@@ -1,14 +1,17 @@
-FROM golang:1.19-bullseye AS build-base
+FROM golang:1.23-bullseye AS build-base
 ENV GO111MODULE=on
 
+# Create and set working directory
 WORKDIR /smoldb/src
 
-COPY . ./smoldb/src
+# Copy go.mod and go.sum first for better caching
+COPY go.mod go.sum ./
 
-# Use cache mount to speed up install of existing dependencies
-RUN --mount=type=cache,target=/go/pkg/mod \
-  --mount=type=cache,target=/root/.cache/go-build \
-  go mod download
+# Try downloading dependencies first
+RUN go mod download
+
+# Then copy the rest of the source code
+COPY . .
 
 # Build image
 RUN CGO_ENABLED=0 GOOS=linux go build -o /go/bin/smoldb
