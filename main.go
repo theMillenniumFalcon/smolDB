@@ -6,99 +6,19 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/themillenniumfalcon/smolDB/api"
-	"github.com/themillenniumfalcon/smolDB/index"
 	"github.com/themillenniumfalcon/smolDB/log"
+	"github.com/themillenniumfalcon/smolDB/sh"
 	"github.com/urfave/cli/v2"
 )
-
-// constructs the path for the lock file based on the provided directory,
-// if dir is empty or ".", the lock file is created in the current directory
-func getLockLocation(dir string) string {
-	base := "smoldb_lock"
-	if dir == "" || dir == "." {
-		return base
-	}
-
-	return dir + "/" + base
-}
-
-// attempts to create a lock file to ensure only one instance
-// of smolDB is running against a specific database directory,
-// returns an error if the lock already exists or cannot be created
-func acquireLock(dir string) error {
-	_, err := index.I.FileSystem.Stat(getLockLocation(dir))
-
-	// create lock if it doesn't exist
-	if os.IsNotExist(err) {
-		_, err = index.I.FileSystem.Create(getLockLocation(dir))
-		return err
-	}
-
-	return fmt.Errorf("couldn't acquire lock on %s", dir)
-}
-
-// removes the lock file, allowing other instances to access the database
-func releaseLock(dir string) error {
-	lockdir := getLockLocation(dir)
-	return index.I.FileSystem.Remove(lockdir)
-}
-
-// performs graceful shutdown operations when the program is terminated,
-// releases the lock file and logs any errors that occur during cleanup
-func cleanup(dir string) {
-	log.Info("\ncaught term signal! cleaning up...")
-
-	// handles graceful shutdown and releases lock file
-	err := releaseLock(dir)
-	if err != nil {
-		log.Warn("couldn't remove lock")
-		log.Fatal(err)
-		return
-	}
-}
-
-// initializes the database, acquires the lock, and sets up signal handling
-// for graceful shutdown, also ensures the index is up to date
-func setup(dir string) {
-	// initialize database setup
-	log.Info("initializing smolDB")
-	index.I = index.NewFileIndex(dir)
-	index.I.Regenerate()
-
-	// lock acquisition
-	err := acquireLock(dir)
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
-
-	// generating index once again, ensures the index is fresh and accounts
-	// for any changes that might have occurred during startup
-	index.I.Regenerate()
-
-	// creates a buffered channel c to receive OS signals
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-	// launches a goroutine that waits for a signal at channel c
-	// when a signal is received, it calls cleanup function to release the lock and exits the program
-	go func() {
-		<-c
-		cleanup(dir)
-		os.Exit(1)
-	}()
-}
 
 // initializes and starts the HTTP server with all API endpoints configured
 func serve(port int, dir string) error {
 	log.Info("initializing smolDB")
 	// initialize database
-	setup(dir)
+	sh.Setup(dir)
 
 	// set up HTTP router
 	router := httprouter.New()
@@ -168,7 +88,7 @@ func main() {
 					},
 				},
 				Action: func(c *cli.Context) error {
-					return shell(c.String("dir"))
+					return sh.Shell(c.String("dir"))
 				},
 			},
 		},

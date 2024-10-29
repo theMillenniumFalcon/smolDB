@@ -1,6 +1,6 @@
 // provides the shell interface for smolDB, allowing interactive
 // command-line operations on the database
-package main
+package sh
 
 import (
 	"bufio"
@@ -11,6 +11,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"os/signal"
+	"syscall"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/themillenniumfalcon/smolDB/api"
@@ -22,28 +24,50 @@ import (
 // when no depth parameter is provided
 const DefaultDepth = 0
 
-// shell initializes and runs the interactive shell interface for smolDB,
-// it takes a directory path as input where the database files are stored
-func shell(dir string) error {
-	log.IsShellMode = true
-	log.Info("starting smoldb shell...")
+// removes the lock file, allowing other instances to access the database
+func releaseLock(dir string) error {
+	lockdir := getLockLocation(dir)
+	return index.I.FileSystem.Remove(lockdir)
+}
 
-	setup(dir)
-	reader := bufio.NewReader(os.Stdin)
+// performs graceful shutdown operations when the program is terminated,
+// releases the lock file and logs any errors that occur during cleanup
+func cleanup(dir string) {
+	log.Info("\ncaught term signal! cleaning up...")
 
-	// the main shell loop, displays a prompt, read user input, and executes input
-	for {
-		log.Prompt("smoldb> ")
-
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			log.Warn("err reading input: %s", err.Error())
-		}
-
-		if err = execInput(input, dir); err != nil {
-			log.Warn("err executing input: %s", err.Error())
-		}
+	// handles graceful shutdown and releases lock file
+	err := releaseLock(dir)
+	if err != nil {
+		log.Warn("couldn't remove lock")
+		log.Fatal(err)
+		return
 	}
+}
+
+// constructs the path for the lock file based on the provided directory,
+// if dir is empty or ".", the lock file is created in the current directory
+func getLockLocation(dir string) string {
+	base := "smoldb_lock"
+	if dir == "" || dir == "." {
+		return base
+	}
+
+	return dir + "/" + base
+}
+
+// attempts to create a lock file to ensure only one instance
+// of smolDB is running against a specific database directory,
+// returns an error if the lock already exists or cannot be created
+func acquireLock(dir string) error {
+	_, err := index.I.FileSystem.Stat(getLockLocation(dir))
+
+	// create lock if it doesn't exist
+	if os.IsNotExist(err) {
+		_, err = index.I.FileSystem.Create(getLockLocation(dir))
+		return err
+	}
+
+	return fmt.Errorf("couldn't acquire lock on %s", dir)
 }
 
 // execInput processes the user input and executes the corresponding command,
@@ -72,6 +96,62 @@ func execInput(input string, dir string) (err error) {
 	}
 
 	return err
+}
+
+// initializes the database, acquires the lock, and sets up signal handling
+// for graceful shutdown, also ensures the index is up to date
+func Setup(dir string) {
+	// initialize database setup
+	log.Info("initializing smolDB")
+	index.I = index.NewFileIndex(dir)
+	index.I.Regenerate()
+
+	// lock acquisition
+	err := acquireLock(dir)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	// generating index once again, ensures the index is fresh and accounts
+	// for any changes that might have occurred during startup
+	index.I.Regenerate()
+
+	// creates a buffered channel c to receive OS signals
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	// launches a goroutine that waits for a signal at channel c
+	// when a signal is received, it calls cleanup function to release the lock and exits the program
+	go func() {
+		<-c
+		cleanup(dir)
+		os.Exit(1)
+	}()
+}
+
+// shell initializes and runs the interactive shell interface for smolDB,
+// it takes a directory path as input where the database files are stored
+func Shell(dir string) error {
+	log.IsShellMode = true
+	log.Info("starting smoldb shell...")
+
+	Setup(dir)
+	reader := bufio.NewReader(os.Stdin)
+
+	// the main shell loop, displays a prompt, read user input, and executes input
+	for {
+		log.Prompt("smoldb> ")
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			log.Warn("err reading input: %s", err.Error())
+		}
+
+		if err = execInput(input, dir); err != nil {
+			log.Warn("err executing input: %s", err.Error())
+		}
+	}
 }
 
 // parseDepthFromArgs extracts and parses the depth parameter from command arguments,
