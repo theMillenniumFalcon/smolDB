@@ -29,3 +29,6 @@ WORKDIR /go/bin
 
 # Set entrypoint
 ENTRYPOINT ["./smoldb"]
+
+# Set default command
+CMD [ "start" ]
