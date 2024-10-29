@@ -26,7 +26,7 @@ export default function Home() {
         .
       </div>
       <Separator className="my-8" />
-      <p className="text-muted-foreground text-sm md:text-base">Get started quickly with Docker:</p>
+      <p className="text-muted-foreground text-sm md:text-base">Get started quickly with the API via Docker:</p>
       <Docker />
       <Separator className="my-8" />
       <div className="text-muted-foreground text-sm md:text-base">
