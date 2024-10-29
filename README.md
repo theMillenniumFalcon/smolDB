@@ -99,6 +99,40 @@ curl -X PATCH -H "Content-Type: application/json" \
 # > key 'test' not found
 ```
 
+### commands
+```bash
+smoldb help  # shows a list of commands
+smoldb start # start a smoldb server on :8080 using folder `db`
+smoldb shell # start an interactive smoldb shell
+```
+
+#### `smoldb start`
+This command starts a new `smoldb` server which listens for requests port `:8080` and uses the default folder `db`.
+
+You can change the directory with the `--dir <value>, -d <value>` flag.
+```bash
+# e.g.
+smoldb --dir some/folder start # start a smoldb server using folder `some/folder`
+smoldb -d . start              # start a smoldb shell in the current directory
+```
+
+You can also change the port the server is hosted on with the `--p <value>, -p <value>` flag.
+```bash
+# e.g.
+smoldb start --port 8081  # start a smoldb server on port 8081
+smoldb -d . start -p 8080 # start a smoldb server on port 8080 using current directory
+```
+
+#### `smoldb shell`
+This command starts a new `smoldb` interactive shell using the defailt folder `db`.
+The interactive shell is more like a quick tool to explore the database by allowing easy viewing of the database index, lookup of documents, and deletion of documents. 
+
+Similar to the `smoldb` server, you can change the directory with the `--dir <value>, -d <value>` flag.
+```bash
+# e.g.
+smoldb -d . shell # start a smoldb shell using current directory
+```
+
 ### building `smolDB` from scratch
 - Run `git clone https://github.com/themillenniumfalcon/smolDB`
 - Run `make build`
