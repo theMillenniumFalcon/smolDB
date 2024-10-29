@@ -6,6 +6,11 @@ A JSON document-based database that relies on key based access to achieve O(1) a
 
 However, the database does not support any advanced queries, sharding, or support for storage distribution.
 
+Get started quickly with the APi via Docker:
+```bash
+docker run -p 8080:8080 nishank02/smoldb:latest
+```
+
 ### key principles
 - Quick access — key-based retrieval in O(1) time
 - Simple to troubleshoot — all documents are stored as human-readable JSON files
