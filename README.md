@@ -1,4 +1,4 @@
-## ![alt text](./asssets/logo.svg) smolDB
+## ![alt text](./assets/logo.svg) smolDB
 
 A JSON document-based database that relies on key based access to achieve O(1) access time.
 
