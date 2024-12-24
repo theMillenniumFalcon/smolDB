@@ -138,6 +138,30 @@ Similar to the `smoldb` server, you can change the directory with the `--dir <va
 smoldb -d . shell # start a smoldb shell using current directory
 ```
 
+### reference resolution
+You can refer to other documents by using a reference of the form `REF::<key>`. For example, with the following two JSONs:
+#### `ref.json`
+```json
+{
+  "key": "REF::nested"
+}
+```
+
+#### `nested.json`
+```json
+{
+  "nestedKey": "nestedVal"
+}
+```
+You end up with the following:
+```json
+{
+   "key": {
+      "nestedKey": "nestedVal"
+   }
+}
+```
+
 ### building `smolDB` from scratch
 - Run `git clone https://github.com/themillenniumfalcon/smolDB`
 - Run `make build`
