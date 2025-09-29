@@ -15,10 +15,10 @@ import (
 )
 
 // initializes and starts the HTTP server with all API endpoints configured
-func serve(port int, dir string) error {
+func serve(port int, dir string, durability string, groupMs int, groupBatch int, syncMode string) error {
 	log.Info("initializing smolDB")
 	// initialize database
-	sh.Setup(dir)
+	sh.SetupWithOptions(dir, durability, groupMs, groupBatch, syncMode)
 
 	// set up HTTP router
 	router := httprouter.New()
@@ -64,6 +64,34 @@ func main() {
 				Usage:       "directory to look for keys",
 				DefaultText: "db",
 			},
+			&cli.StringFlag{
+				Name:        "durability",
+				Usage:       "durability level: none|commit|grouped",
+				Value:       "commit",
+				DefaultText: "commit",
+				EnvVars:     []string{"SMOLDB_DURABILITY"},
+			},
+			&cli.IntFlag{
+				Name:        "group-commit-ms",
+				Usage:       "group commit fsync interval in ms (used when durability=grouped)",
+				Value:       0,
+				DefaultText: "0",
+				EnvVars:     []string{"SMOLDB_GROUP_COMMIT_MS"},
+			},
+			&cli.IntFlag{
+				Name:        "group-commit-batch",
+				Usage:       "group commit fsync after this many appends (used when durability=grouped)",
+				Value:       0,
+				DefaultText: "0",
+				EnvVars:     []string{"SMOLDB_GROUP_COMMIT_BATCH"},
+			},
+			&cli.StringFlag{
+				Name:        "sync-mode",
+				Usage:       "sync mode: none|fsync|dsync (dsync best-effort)",
+				Value:       "fsync",
+				DefaultText: "fsync",
+				EnvVars:     []string{"SMOLDB_SYNC_MODE"},
+			},
 		},
 		// command definitions for 'start' and 'shell'
 		Commands: []*cli.Command{
@@ -72,7 +100,14 @@ func main() {
 				Aliases: []string{"st"},
 				Usage:   "start a smoldb server",
 				Action: func(c *cli.Context) error {
-					return serve(c.Int("port"), c.String("dir"))
+					return serve(
+						c.Int("port"),
+						c.String("dir"),
+						c.String("durability"),
+						c.Int("group-commit-ms"),
+						c.Int("group-commit-batch"),
+						c.String("sync-mode"),
+					)
 				},
 			}, {
 				Name:    "shell",
@@ -86,9 +121,43 @@ func main() {
 						Usage:       "port to run smoldb on",
 						DefaultText: "8080",
 					},
+					&cli.StringFlag{
+						Name:        "durability",
+						Usage:       "durability level: none|commit|grouped",
+						Value:       "commit",
+						DefaultText: "commit",
+						EnvVars:     []string{"SMOLDB_DURABILITY"},
+					},
+					&cli.IntFlag{
+						Name:        "group-commit-ms",
+						Usage:       "group commit fsync interval in ms (used when durability=grouped)",
+						Value:       0,
+						DefaultText: "0",
+						EnvVars:     []string{"SMOLDB_GROUP_COMMIT_MS"},
+					},
+					&cli.IntFlag{
+						Name:        "group-commit-batch",
+						Usage:       "group commit fsync after this many appends (used when durability=grouped)",
+						Value:       0,
+						DefaultText: "0",
+						EnvVars:     []string{"SMOLDB_GROUP_COMMIT_BATCH"},
+					},
+					&cli.StringFlag{
+						Name:        "sync-mode",
+						Usage:       "sync mode: none|fsync|dsync (dsync best-effort)",
+						Value:       "fsync",
+						DefaultText: "fsync",
+						EnvVars:     []string{"SMOLDB_SYNC_MODE"},
+					},
 				},
 				Action: func(c *cli.Context) error {
-					return sh.Shell(c.String("dir"))
+					return sh.ShellWithOptions(
+						c.String("dir"),
+						c.String("durability"),
+						c.Int("group-commit-ms"),
+						c.Int("group-commit-batch"),
+						c.String("sync-mode"),
+					)
 				},
 			},
 		},

@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
-	"os/signal"
 	"syscall"
 
 	"github.com/julienschmidt/httprouter"
@@ -104,6 +104,14 @@ func Setup(dir string) {
 	// initialize database setup
 	log.Info("initializing smolDB")
 	index.I = index.NewFileIndex(dir)
+	// initialize WAL with commit durability and replay
+	if err := index.I.InitWAL(index.DurabilityCommit); err != nil {
+		log.Warn("failed to init WAL: %s", err.Error())
+	} else {
+		if index.I != nil && index.I.WALAvailable() {
+			_ = index.I.WALReplay()
+		}
+	}
 	index.I.Regenerate()
 
 	// lock acquisition
@@ -128,6 +136,91 @@ func Setup(dir string) {
 		cleanup(dir)
 		os.Exit(1)
 	}()
+}
+
+// SetupWithOptions is like Setup, but allows configuring durability and group commit interval
+func SetupWithOptions(dir string, durability string, groupCommitMs int, groupCommitBatch int, syncMode string) {
+	log.Info("initializing smolDB")
+	index.I = index.NewFileIndex(dir)
+
+	// pick durability level
+	level := index.DurabilityCommit
+	switch durability {
+	case "none":
+		level = index.DurabilityNone
+	case "commit":
+		level = index.DurabilityCommit
+	case "grouped":
+		level = index.DurabilityGrouped
+	}
+
+	// set sync mode
+	switch syncMode {
+	case "none":
+		index.I.SetSyncMode(index.SyncNone)
+	case "fsync":
+		index.I.SetSyncMode(index.SyncFsync)
+	case "dsync":
+		index.I.SetSyncMode(index.SyncDSync)
+	default:
+		index.I.SetSyncMode(index.SyncFsync)
+	}
+
+	// initialize WAL with chosen durability and grouped interval/batch
+	if err := index.I.InitWALWithOptions(level, groupCommitMs, groupCommitBatch); err != nil {
+		log.Warn("failed to init WAL: %s", err.Error())
+	} else {
+		if index.I != nil && index.I.WALAvailable() {
+			_ = index.I.WALReplay()
+		}
+	}
+	index.I.Regenerate()
+
+	// lock acquisition
+	err := acquireLock(dir)
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	// generating index once again, ensures the index is fresh and accounts
+	// for any changes that might have occurred during startup
+	index.I.Regenerate()
+
+	// creates a buffered channel c to receive OS signals
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	// launches a goroutine that waits for a signal at channel c
+	// when a signal is received, it calls cleanup function to release the lock and exits the program
+	go func() {
+		<-c
+		cleanup(dir)
+		os.Exit(1)
+	}()
+}
+
+// ShellWithOptions runs the shell with durability configuration
+func ShellWithOptions(dir string, durability string, groupCommitMs int, groupCommitBatch int, syncMode string) error {
+	log.IsShellMode = true
+	log.Info("starting smoldb shell...")
+
+	SetupWithOptions(dir, durability, groupCommitMs, groupCommitBatch, syncMode)
+	reader := bufio.NewReader(os.Stdin)
+
+	// the main shell loop, displays a prompt, read user input, and executes input
+	for {
+		log.Prompt("smoldb> ")
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			log.Warn("err reading input: %s", err.Error())
+		}
+
+		if err = execInput(input, dir); err != nil {
+			log.Warn("err executing input: %s", err.Error())
+		}
+	}
 }
 
 // shell initializes and runs the interactive shell interface for smolDB,

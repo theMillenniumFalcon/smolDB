@@ -224,7 +224,7 @@ func PatchKeyField(w http.ResponseWriter, r *http.Request, ps httprouter.Params)
 		}
 		jsonData, _ := json.Marshal(jsonMap)
 
-		err = file.ReplaceContent(string(jsonData))
+		err = index.I.Put(file, jsonData)
 		if err != nil {
 			w.WriteHeader(serverErrorStatus)
 			log.WWarn(w, "err setting content of key '%s': %s", key, err.Error())

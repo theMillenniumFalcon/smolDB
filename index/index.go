@@ -23,6 +23,10 @@ type FileIndex struct {
 	dir        string           // base directory for database files
 	index      map[string]*File // map of filename to File objects
 	FileSystem af.Fs            // abstract filesystem interface for testing and flexibility
+	wal        *WAL             // write-ahead log for durability
+	durability DurabilityLevel  // durability level for fsync behavior
+	groupBatch int              // fsync after this many appends when grouped
+	syncMode   SyncMode         // sync mode for WAL
 }
 
 // global instance of FileIndex used throughout the application
@@ -35,6 +39,37 @@ func NewFileIndex(dir string) *FileIndex {
 		dir:        dir,
 		index:      map[string]*File{},
 		FileSystem: af.NewOsFs(),
+	}
+}
+
+// InitWAL initializes the WAL with the given durability level
+func (i *FileIndex) InitWAL(level DurabilityLevel) error {
+	i.durability = level
+	w, err := newWAL(i.FileSystem, i.dir, level, 0, 0, SyncFsync)
+	if err != nil {
+		return err
+	}
+	i.wal = w
+	return nil
+}
+
+// InitWALWithOptions initializes the WAL with durability and group commit interval/batch
+func (i *FileIndex) InitWALWithOptions(level DurabilityLevel, groupCommitMs int, groupCommitBatch int) error {
+	i.durability = level
+	i.groupBatch = groupCommitBatch
+	w, err := newWAL(i.FileSystem, i.dir, level, groupCommitMs, groupCommitBatch, i.syncMode)
+	if err != nil {
+		return err
+	}
+	i.wal = w
+	return nil
+}
+
+// SetSyncMode sets sync mode for WAL
+func (i *FileIndex) SetSyncMode(mode SyncMode) {
+	i.syncMode = mode
+	if i.wal != nil {
+		i.wal.syncMode = mode
 	}
 }
 
@@ -65,6 +100,10 @@ func (i *FileIndex) Put(file *File, bytes []byte) error {
 	defer i.mu.Unlock()
 
 	i.index[file.FileName] = file
+	// append to WAL before applying mutation
+	if i.wal != nil {
+		_ = i.wal.Append(walEntry{Op: opPut, Key: file.FileName, Body: string(bytes)})
+	}
 	err := file.ReplaceContent(string(bytes))
 	return err
 }
@@ -107,12 +146,31 @@ func (i *FileIndex) Delete(file *File) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
+	// append to WAL before applying mutation
+	if i.wal != nil {
+		_ = i.wal.Append(walEntry{Op: opDelete, Key: file.FileName})
+	}
 	err := file.Delete()
 	if err == nil {
 		delete(i.index, file.FileName)
 	}
 
 	return err
+}
+
+// WALAvailable reports whether WAL is initialized
+func (i *FileIndex) WALAvailable() bool {
+	return i != nil && i.wal != nil
+}
+
+// WALReplay replays the WAL to bring files and index to a consistent state
+func (i *FileIndex) WALReplay() error {
+	if i == nil || i.wal == nil {
+		return nil
+	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return i.wal.Replay(i)
 }
 
 // returns a slice of all keys (filenames) in the index
