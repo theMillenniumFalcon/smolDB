@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,14 +52,15 @@ type walEntry struct {
 
 // WAL encapsulates write-ahead logging
 type WAL struct {
-	fs         af.Fs
-	file       af.File
-	dir        string
-	durability DurabilityLevel
-	groupMs    int
-	groupBatch int
-	appendCnt  int
-	syncMode   SyncMode
+	fs                   af.Fs
+	file                 af.File
+	dir                  string
+	durability           DurabilityLevel
+	groupMs              int
+	groupBatch           int
+	appendCnt            int
+	syncMode             SyncMode
+	lastCheckpointOffset int64
 }
 
 func newWAL(fs af.Fs, dir string, durability DurabilityLevel, groupMs int, groupBatch int, syncMode SyncMode) (*WAL, error) {
@@ -138,6 +140,56 @@ func (w *WAL) Close() error {
 	return w.file.Close()
 }
 
+// TruncateAt physically truncates the WAL file at the given offset
+// This is used after successful checkpoint creation to prevent WAL from growing indefinitely
+func (w *WAL) TruncateAt(offset int64) error {
+	if w == nil || w.file == nil {
+		return fmt.Errorf("wal not initialized")
+	}
+
+	// Close current file handle
+	w.file.Close()
+
+	// Open file with truncate option
+	walPath := filepath.Join(w.dir, ".smoldb", "wal.log")
+	tmpPath := walPath + ".tmp"
+
+	// Create new file with content up to offset
+	srcFile, err := w.fs.OpenFile(walPath, os.O_RDONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open WAL for truncation: %v", err)
+	}
+	defer srcFile.Close()
+
+	tmpFile, err := w.fs.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create temporary WAL: %v", err)
+	}
+
+	// Copy content up to offset
+	if _, err := io.CopyN(tmpFile, srcFile, offset); err != nil {
+		tmpFile.Close()
+		w.fs.Remove(tmpPath)
+		return fmt.Errorf("failed to copy WAL content: %v", err)
+	}
+	tmpFile.Close()
+
+	// Atomic rename
+	if err := w.fs.Rename(tmpPath, walPath); err != nil {
+		w.fs.Remove(tmpPath)
+		return fmt.Errorf("failed to rename truncated WAL: %v", err)
+	}
+
+	// Reopen WAL for appending
+	f, err := w.fs.OpenFile(walPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to reopen WAL after truncation: %v", err)
+	}
+	w.file = f
+
+	return nil
+}
+
 // Replay scans wal.log and re-applies any operations to reach a consistent state
 func (w *WAL) Replay(idx *FileIndex) error {
 	walPath := filepath.Join(w.dir, ".smoldb", "wal.log")
@@ -150,6 +202,17 @@ func (w *WAL) Replay(idx *FileIndex) error {
 		return err
 	}
 	defer f.Close()
+
+	// If we have a checkpoint offset, seek to it
+	if w.lastCheckpointOffset > 0 {
+		if _, err := f.Seek(w.lastCheckpointOffset, 0); err != nil {
+			log.Warn("wal: failed to seek to checkpoint offset: %v", err)
+			// Fall back to full replay
+			if _, err := f.Seek(0, 0); err != nil {
+				return err
+			}
+		}
+	}
 
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {

@@ -19,14 +19,15 @@ type File struct {
 
 // the main index structure that manages all files in the database
 type FileIndex struct {
-	mu         sync.RWMutex     // mutex for thread-safe index operations
-	dir        string           // base directory for database files
-	index      map[string]*File // map of filename to File objects
-	FileSystem af.Fs            // abstract filesystem interface for testing and flexibility
-	wal        *WAL             // write-ahead log for durability
-	durability DurabilityLevel  // durability level for fsync behavior
-	groupBatch int              // fsync after this many appends when grouped
-	syncMode   SyncMode         // sync mode for WAL
+	mu              sync.RWMutex     // mutex for thread-safe index operations
+	dir             string           // base directory for database files
+	index           map[string]*File // map of filename to File objects
+	FileSystem      af.Fs            // abstract filesystem interface for testing and flexibility
+	wal             *WAL             // write-ahead log for durability
+	durability      DurabilityLevel  // durability level for fsync behavior
+	checkpointTimer *time.Timer      // timer for periodic checkpoints
+	groupBatch      int              // fsync after this many appends when grouped
+	syncMode        SyncMode         // sync mode for WAL
 }
 
 // global instance of FileIndex used throughout the application
@@ -77,6 +78,23 @@ func (i *FileIndex) SetSyncMode(mode SyncMode) {
 // primarily used for testing purposes
 func (i *FileIndex) SetFileSystem(fs af.Fs) {
 	i.FileSystem = fs
+}
+
+// StartPeriodicCheckpoints starts a timer to create checkpoints periodically
+func (i *FileIndex) StartPeriodicCheckpoints(interval time.Duration) {
+	if i.checkpointTimer != nil {
+		i.checkpointTimer.Stop()
+	}
+
+	i.checkpointTimer = time.NewTimer(interval)
+	go func() {
+		for range i.checkpointTimer.C {
+			if err := i.CreateCheckpoint(); err != nil {
+				log.Warn("failed to create periodic checkpoint: %v", err)
+			}
+			i.checkpointTimer.Reset(interval)
+		}
+	}()
 }
 
 // retrieves a File object from the index by its key,
@@ -194,4 +212,17 @@ func (f *File) ResolvePath() string {
 	}
 
 	return fmt.Sprintf("%s/%s.json", I.dir, f.FileName)
+}
+
+// ReadContent reads and returns the content of the file
+// thread-safe through read lock
+func (f *File) ReadContent() (string, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+
+	bytes, err := af.ReadFile(I.FileSystem, f.ResolvePath())
+	if err != nil {
+		return "", fmt.Errorf("failed to read file content: %v", err)
+	}
+	return string(bytes), nil
 }

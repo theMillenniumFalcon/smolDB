@@ -104,14 +104,29 @@ func Setup(dir string) {
 	// initialize database setup
 	log.Info("initializing smolDB")
 	index.I = index.NewFileIndex(dir)
-	// initialize WAL with commit durability and replay
+
+	// First verify lock status
+	if _, err := os.Stat(getLockLocation(dir)); err == nil {
+		log.Warn("Database was not shutdown cleanly, lock file exists")
+	}
+
+	// Restore from latest checkpoint if available
+	if err := index.I.RestoreFromCheckpoint(); err != nil {
+		log.Warn("failed to restore from checkpoint: %s", err.Error())
+	}
+
+	// initialize WAL with commit durability and replay from last checkpoint
 	if err := index.I.InitWAL(index.DurabilityCommit); err != nil {
 		log.Warn("failed to init WAL: %s", err.Error())
 	} else {
 		if index.I != nil && index.I.WALAvailable() {
-			_ = index.I.WALReplay()
+			if err := index.I.WALReplay(); err != nil {
+				log.Warn("failed to replay WAL: %s", err.Error())
+			}
 		}
 	}
+
+	// Rebuild index after recovery
 	index.I.Regenerate()
 
 	// lock acquisition
@@ -142,6 +157,16 @@ func Setup(dir string) {
 func SetupWithOptions(dir string, durability string, groupCommitMs int, groupCommitBatch int, syncMode string) {
 	log.Info("initializing smolDB")
 	index.I = index.NewFileIndex(dir)
+
+	// First verify lock status
+	if _, err := os.Stat(getLockLocation(dir)); err == nil {
+		log.Warn("Database was not shutdown cleanly, lock file exists")
+	}
+
+	// Restore from latest checkpoint if available
+	if err := index.I.RestoreFromCheckpoint(); err != nil {
+		log.Warn("failed to restore from checkpoint: %s", err.Error())
+	}
 
 	// pick durability level
 	level := index.DurabilityCommit

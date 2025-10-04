@@ -4,7 +4,8 @@ import React from "react";
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/seperator"
 import { Docker } from "@/components/docker";
-import { Shield } from "lucide-react";
+import { FeatureCard } from "@/components/ui/feature-card";
+import { features } from "@/lib/features";
 
 export default function Home() {
   return (
@@ -28,15 +29,14 @@ export default function Home() {
 
       <Separator className="my-8" />
 
-      {/* Durability Feature */}
-      <div className="bg-muted/50 rounded-lg p-4 mb-8 border border-border">
-        <div className="flex items-center gap-2 mb-2">
-          <Shield className="w-4 h-4 text-primary" />
-          <h2 className="text-base font-semibold">Production-Ready Durability</h2>
+      {/* Features Section */}
+      <div className="space-y-4 mb-8">
+        <h2 className="text-sm font-medium text-muted-foreground">Key Features</h2>
+        <div className="grid md:grid-cols-2 gap-2">
+          {features.map((feature, index) => (
+            <FeatureCard key={index} feature={feature} />
+          ))}
         </div>
-        <p className="text-muted-foreground text-sm">
-          Now includes Write-Ahead Logging with configurable fsync modes, group commit, and automatic crash recovery.
-        </p>
       </div>
 
       <p className="text-muted-foreground text-sm md:text-base">Get started quickly with the API via Docker:</p>
