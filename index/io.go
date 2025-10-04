@@ -4,9 +4,11 @@ package index
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	af "github.com/spf13/afero"
 	"github.com/themillenniumfalcon/smolDB/log"
@@ -54,9 +56,28 @@ func (f *File) ReplaceContent(str string) error {
 	defer file.Close()
 
 	// write the new content
-	_, e := file.WriteString(str)
-	if e != nil {
+	_, err = file.WriteString(str)
+	if err != nil {
 		return err
+	}
+
+	// Update metadata with new checksum
+	meta := &MetaData{
+		Checksum: calculateChecksum([]byte(str)),
+		Modified: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	// Read existing metadata if it exists
+	existing, _ := f.readMetadata()
+	if existing != nil {
+		meta.Created = existing.Created
+	} else {
+		meta.Created = meta.Modified
+	}
+
+	err = f.writeMetadata(meta)
+	if err != nil {
+		return fmt.Errorf("failed to update metadata: %v", err)
 	}
 
 	return nil

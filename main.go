@@ -38,6 +38,10 @@ func serve(port int, dir string, durability string, groupMs int, groupBatch int,
 	router.GET("/key/:key/field/:field", api.GetKeyField)
 	router.PATCH("/key/:key/field/:field", api.PatchKeyField)
 
+	// integrity routes
+	router.GET("/integrity/:key", api.CheckKeyIntegrity)
+	router.POST("/integrity/:key/repair", api.RepairKeyIntegrity)
+
 	log.Info("starting api server on port %d", port)
 	// start HTTP server
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), router)
