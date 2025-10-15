@@ -45,7 +45,7 @@ export default function Home() {
       <div className="text-muted-foreground text-sm md:text-base">
         Built by{" "}
         <a
-          href="https://nishank.vercel.app"
+          href="https://github.com/themillenniumfalcon"
           target="_blank"
         >
           <Button className="p-0 h-auto text-sm md:text-base" variant="link">
