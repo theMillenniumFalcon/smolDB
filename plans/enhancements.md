@@ -32,11 +32,7 @@
 - Add per-file checksum (e.g., xxhash) stored alongside `<key>.json.meta` or embedded header.
 - Validate checksum on read; expose `GET /integrity/:key` and `POST /integrity/repair`.
 
-4) Observability
-- Structured logs with request IDs; add Prometheus metrics: qps, latency histograms, errors, in-flight, WAL queue depth, fsync time.
-- Add `/metrics` endpoint.
-
-5) Operational tooling
+4) Operational tooling
 - Offline compaction command: `smoldb admin compact` to rewrite JSON and trim WAL.
 - Integrity scanner: `smoldb admin verify` to scan all keys, report or repair.
 
