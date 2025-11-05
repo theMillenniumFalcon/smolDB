@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/themillenniumfalcon/smolDB/admin"
 	"github.com/themillenniumfalcon/smolDB/api"
 	"github.com/themillenniumfalcon/smolDB/log"
 	"github.com/themillenniumfalcon/smolDB/sh"
@@ -99,6 +100,76 @@ func main() {
 		},
 		// command definitions for 'start' and 'shell'
 		Commands: []*cli.Command{
+			{
+				Name: "admin",
+				Subcommands: []*cli.Command{
+					{
+						Name:  "compact",
+						Usage: "compact the database by rewriting JSON files and trimming WAL",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{
+								Name:  "force",
+								Usage: "force compaction even if database is locked",
+								Value: false,
+							},
+						},
+						Action: func(c *cli.Context) error {
+							stats, err := admin.CompactDB(c.String("dir"), c.Bool("force"))
+							if err != nil {
+								return err
+							}
+							log.Info("Compaction complete:")
+							log.Info("- Files processed: %d", stats.FilesProcessed)
+							log.Info("- Size before: %d bytes", stats.BytesBefore)
+							log.Info("- Size after: %d bytes", stats.BytesAfter)
+							log.Info("- Space saved: %d bytes", stats.BytesBefore-stats.BytesAfter)
+							if stats.WalEntriesTrimmed > 0 {
+								log.Info("- WAL entries trimmed: %d", stats.WalEntriesTrimmed)
+							}
+							return nil
+						},
+					},
+					{
+						Name:  "verify",
+						Usage: "verify database integrity",
+						Flags: []cli.Flag{
+							&cli.BoolFlag{
+								Name:  "repair",
+								Usage: "attempt to repair issues found",
+								Value: false,
+							},
+						},
+						Action: func(c *cli.Context) error {
+							report, err := admin.VerifyDB(c.String("dir"), c.Bool("repair"))
+							if err != nil {
+								return err
+							}
+							log.Info("Integrity check complete:")
+							log.Info("- Total files: %d", report.TotalFiles)
+							log.Info("- Valid files: %d", report.ValidFiles)
+							if len(report.InvalidFiles) > 0 {
+								log.Warn("- Invalid files (%d):", len(report.InvalidFiles))
+								for _, f := range report.InvalidFiles {
+									log.Warn("  - %s", f)
+								}
+							}
+							if len(report.Repairs) > 0 {
+								log.Info("- Repaired files (%d):", len(report.Repairs))
+								for _, f := range report.Repairs {
+									log.Info("  - %s", f)
+								}
+							}
+							if len(report.IndexMismatches) > 0 {
+								log.Warn("- Index mismatches (%d):", len(report.IndexMismatches))
+								for _, f := range report.IndexMismatches {
+									log.Warn("  - %s", f)
+								}
+							}
+							return nil
+						},
+					},
+				},
+			},
 			{
 				Name:    "start",
 				Aliases: []string{"st"},
