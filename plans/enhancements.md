@@ -39,7 +39,6 @@
 Acceptance criteria
 - No data loss on power-cut tests under `commit` durability.
 - Clean restart with WAL replay and consistent index.
-- Metrics visible in Prometheus + basic Grafana dashboard JSON committed.
 
 ---
 
@@ -74,7 +73,6 @@ Acceptance criteria
   - Reference resolution with configurable depth
   - Durability levels and WAL-based crash recovery
   - Read replicas (beta) and shardable storage (alpha)
-  - Observability: Prometheus metrics, Grafana dashboard
   - Simple CLI+Docker deploy
 
 - Reliability/scale claims
@@ -101,7 +99,6 @@ Environments
 
 Tools
 - `hey` for HTTP load, `bombardier` alternative, `k6` for scripted scenarios.
-- Collect: Prometheus metrics + `pidstat`/`iostat`/`perf stat`.
 
 Methodology
 - Warmup 60s, measure 120s, cool down 30s; three runs per scenario.
@@ -122,16 +119,13 @@ Acceptance criteria
 M1: Durability + recovery (2-3 weeks)
 - Implement WAL append + replay; fsync knobs; checkpoints; tests for crash-recovery; docs.
 
-M2: Observability + ops (1 week)
-- Prometheus metrics; Grafana dashboard JSON; admin commands; docs.
-
-M3: Read replicas (2 weeks)
+M2: Read replicas (2 weeks)
 - WAL streaming API; follower process; lag metrics; fail/restart tests; docs.
 
-M4: Sharding alpha (1-2 weeks)
+M3: Sharding alpha (1-2 weeks)
 - In-process shard router + multiple `FileIndex` instances; migration tool; docs.
 
-M5: Benchmarks + homepage refresh (1 week)
+M4: Benchmarks + homepage refresh (1 week)
 - Scripts, reports, updated README/web highlights and badges.
 
 ---
@@ -146,13 +140,6 @@ WAL format (line-delimited JSON)
 ```
 - Append atomically; fsync after N ms (configurable); use file rotate by size/time.
 - On replay, validate sequence and checksums; stop at first malformed line.
-
-Prometheus metrics
-- `smoldb_http_requests_total{route,method,status}`
-- `smoldb_http_request_duration_seconds_bucket{route}`
-- `smoldb_wal_appends_total`, `smoldb_wal_fsync_seconds_bucket`
-- `smoldb_index_size`, `smoldb_keys_total`
-- `smoldb_replica_lag_seconds` (when enabled)
 
 Config surface
 - CLI flags/env: `--dir`, `--port`, `--durability`, `--group-commit-ms`, `--metrics`.
