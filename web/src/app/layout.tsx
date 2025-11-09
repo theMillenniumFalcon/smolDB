@@ -23,10 +23,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="overflow-x-hidden">
+      <body className={`${inter.className} overflow-x-hidden`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <main className="flex min-h-screen w-screen items-center flex-col justify-start sm:px-8 px-4">
+          <main className="flex min-h-screen w-full items-center flex-col justify-start sm:px-8 px-4">
             <nav className="z-10 h-20 items-center justify-between w-full max-w-screen-md flex">
               <Image
                 src="/logo.svg"
